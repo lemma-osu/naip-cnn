@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "naip_cnn"
+dynamic = ["version"]
+description = "Modeling forest attributes from aerial imagery using CNNs"
+readme = "README.md"
+license = ""
+requires-python = ">=3.8"
+authors = [
+    { name = "Aaron Zuspan", email = "aaron.zuspan@oregonstate.edu" },
+    { name = "Adam Sibley", email = "adam.sibley@oregonstate.edu" }
+]
+dependencies = [
+    "earthengine-api",
+    "rasterio",
+    "scikit-learn",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "geopandas",
+    "ipykernel",
+    "black[jupyter]",
+    "ruff",
+]
+
+[tool.hatch.version]
+path = "src/naip_cnn/__init__.py"
+
+[tool.ruff]
+target-version = "py38"
+select = ["E", "I", "F", "B", "FA", "UP", "ISC", "PT", "NPY", "Q", "RET", "SIM", "PERF"]
+fix = true
+show-fixes = true
+
+[tool.ruff.isort]
+known-first-party = ["naip_cnn"]
