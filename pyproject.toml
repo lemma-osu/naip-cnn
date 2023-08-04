@@ -14,6 +14,7 @@ authors = [
     { name = "Adam Sibley", email = "adam.sibley@oregonstate.edu" }
 ]
 dependencies = [
+    "tensorflow",
     "earthengine-api",
     "rasterio",
     "scikit-learn",

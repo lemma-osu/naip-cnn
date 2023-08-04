@@ -18,7 +18,7 @@ Docker is the recommended solution for running this project, as GPU installation
 
 ### Without Docker
 
-If you do not want to use Docker, you can follow [this guide](https://www.tensorflow.org/install/pip) and then use `pip install -r requirements.txt` to install the required packages.
+If you do not want to use Docker, you can follow [this guide](https://www.tensorflow.org/install/pip) and then use `pip install -e .` to install the required packages.
 
 ### Checking Your Setup
 
