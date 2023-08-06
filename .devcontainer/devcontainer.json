@@ -7,6 +7,9 @@
 		"context": "..",
 		"dockerfile": "./Dockerfile"
 	},
+	"mounts": [
+		"source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached"
+	],
 	"customizations": {
 		"vscode": {
 			"extensions": [
