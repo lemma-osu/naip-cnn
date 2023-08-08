@@ -86,6 +86,7 @@ def generate_spaced_samples(
     min_spacing: float,
     n: int | None = None,
     band: int = 1,
+    seed: int = 0,
 ) -> gpd.GeoDataFrame:
     """Generate a systematic random sample of points at a minimum spacing over a raster.
 
@@ -100,6 +101,8 @@ def generate_spaced_samples(
         The minimum spacing between points.
     band : int
         The raster band index to sample from.
+    seed : int
+        The random seed to use when sampling, for reproducibility.
 
     Returns
     -------
@@ -123,7 +126,7 @@ def generate_spaced_samples(
             f" ({len(samples)}). Try reducing `n` or `min_spacing`."
         )
 
-    return samples.sample(n=n)[["geometry"]].reset_index(drop=True)
+    return samples.sample(n=n, random_state=seed)[["geometry"]].reset_index(drop=True)
 
 
 def _create_footprint_at_xy(
