@@ -26,6 +26,7 @@ dependencies = [
     "mapclassify",
     "plotly",
     "pyarrow",
+    "pillow",
     "openlocationcode",
     "ipykernel",
     "black[jupyter]",

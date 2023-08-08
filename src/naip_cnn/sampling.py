@@ -5,6 +5,7 @@ images.
 
 from __future__ import annotations
 
+import io
 import math
 
 import ee
@@ -13,6 +14,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 from joblib import Parallel, delayed
+from PIL import Image
 
 
 def _create_point_grid(*, bounds, spacing: float, crs: str) -> gpd.GeoDataFrame:
@@ -210,8 +212,9 @@ def extract_footprints_from_dataframe(
 
 def _parse_pixel_array(
     footprint: pd.Series,
+    *,
     shape: tuple[int] = (30, 30),
-    bands: tuple[str] = ("N", "R", "G", "B"),
+    bands: tuple[str] = ("R", "G", "B", "N"),
     dtype: np.dtype = np.uint8,
 ) -> np.ndarray:
     """Parse a footprint of pixel values into a numpy array"""
@@ -224,14 +227,14 @@ def _parse_pixel_array(
     return features
 
 
-def preview_footprint(
+def footprint_to_bytes(
     footprint: pd.Series,
+    *,
     shape: tuple[int] = (30, 30),
-    bands: tuple[str] = ("N", "R", "G"),
+    bands: tuple[str] = ("R", "G", "B", "N"),
     dtype: np.dtype = np.uint8,
-    figsize: tuple[int] = (3, 3),
-):
-    """Preview a footprint of pixel values.
+) -> bytes:
+    """Encode a footprint with flat arrays of pixel values to PNG bytes.
 
     Parameters
     ----------
@@ -240,19 +243,16 @@ def preview_footprint(
     shape : tuple[int]
         The shape of the footprint, in pixels.
     bands : tuple[str]
-        The bands to display.
+        The bands to parse.
     dtype : np.dtype
         The dtype to cast the pixel values to.
+
+    Returns
+    -------
+    bytes
+        The PNG-encoded footprint image.
     """
-    import matplotlib.pyplot as plt
-
-    if len(bands) > 3:
-        raise ValueError("Select exactly 3 bands to visualize.")
-
-    features = _parse_pixel_array(footprint, shape=shape, bands=bands, dtype=dtype)
-
-    _, ax = plt.subplots(1, 1, figsize=figsize)
-    ax.imshow(features)
-    ax.set_title(
-        footprint.drop(labels=["N", "R", "G", "B", "geometry", "id"]).to_dict()
-    )
+    array = _parse_pixel_array(footprint, shape=shape, bands=bands, dtype=dtype)
+    buffer = io.BytesIO()
+    Image.fromarray(array).save(buffer, format="PNG")
+    return buffer.getvalue()
