@@ -75,6 +75,7 @@ def extract_raster_at_points(
 
     data = raster.read(band)
     band_name = raster.descriptions[band - 1]
+    band_name = band_name if band_name is not None else f"b{band}"
 
     points["idx"] = list(zip(*raster.index(points.geometry.x, points.geometry.y)))
     points[band_name] = points.idx.apply(lambda idx: data[idx])
@@ -136,11 +137,11 @@ def _create_footprint_at_xy(
 ) -> ee.Geometry:
     """Create a rectangular footprint centered on an xy coordinate."""
     x, y = xy
-    minx = x - dims[0] // 2
-    miny = y - dims[1] // 2
-    maxx = x + dims[0] // 2
-    maxy = y + dims[1] // 2
-    return ee.Geometry.Rectangle([minx, miny, maxx, maxy], proj=proj, geodesic=False)
+    xmin = x - dims[0] // 2
+    ymin = y - dims[1] // 2
+    xmax = x + dims[0] // 2
+    ymax = y + dims[1] // 2
+    return ee.Geometry.Rectangle([xmin, ymin, xmax, ymax], proj=proj, geodesic=False)
 
 
 def _extract_values_at_footprint(
@@ -154,7 +155,7 @@ def _extract_values_at_footprint(
 
 def extract_footprints_from_dataframe(
     *,
-    df: pd.DataFrame,
+    df: gpd.GeoDataFrame,
     img: ee.Image,
     dims: tuple[int, int],
     proj: ee.Projection,
@@ -165,7 +166,7 @@ def extract_footprints_from_dataframe(
     Parameters
     ----------
     df : pd.DataFrame
-        A dataframe of geometries to sample values at.
+        A dataframe of Point geometries to sample values around.
     img : ee.Image
         The image to sample from.
     dims : tuple[int, int]
@@ -180,7 +181,7 @@ def extract_footprints_from_dataframe(
     Returns
     -------
     pd.DataFrame
-        A dataframe of pixel values from the image. Each row is a geometry from the
+        A dataframe of pixel values from the image. Each row is a point from the
         original dataframe, with one column added per image band. Pixel values are
         stored as flat lists of values.
     """
