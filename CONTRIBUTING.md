@@ -7,14 +7,14 @@
 Docker is the recommended solution for running this project, as GPU installations of Tensorflow can be tricky to setup, especially on Windows. The steps below are for using the Docker image through [VS Code](https://code.visualstudio.com/), but the image can also be run directly [from the command line](https://docs.docker.com/get-started/run-your-own-container/).
 
 1. Install the [Dev Containers extension](https://code.visualstudio.com/docs/devcontainers/containers) in VS Code.
-2. If Docker Desktop is not already installed on your machine, run `Dev Containers: Install Docker` from the [command palette](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
+2. If Docker Desktop is not already installed on your machine, run `Dev Containers: Install Docker` from the [command palette](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette). The installation process will continue outside of VS Code and may take a few minutes and require a system restart.
 3. For Windows users, install and enable WSL 2 for Docker by following [this guide](https://docs.docker.com/desktop/wsl/). The basic steps are outlined below.
     1. Install [WSL 2 from the Microsoft Store](https://apps.microsoft.com/store/detail/windows-subsystem-for-linux/9P9TQF7MRM4R).
-    2. Run `wsl --install` to install Ubuntu.
+    2. Run `wsl --install -d Ubuntu` in a terminal to install Ubuntu. Other distros may work, but haven't been tested.
     3. Open Docker Desktop settings and enable Ubuntu via `Resources > WSL Integration`.
-    4. Enter a WSL shell using `wsl` and run `docker --version` to confirm that Docker is available.
+    4. Enter a WSL shell by running `wsl` from a terminal. Run `docker --version` to confirm that Docker is available.
 4. Open this project in VS Code.
-5. Run `Dev Containers: Reopen in Container` from the command palette. This will build the Docker image and start a containerized VS Code instance.
+5. Run `Dev Containers: Reopen in Container` from the command palette. This will build the Docker image and start a containerized VS Code instance, which may take a few minutes. Warnings about NUMA support and running as root user can be ignored.
 
 ### Without Docker
 
@@ -29,3 +29,5 @@ import tensorflow as tf
 
 assert tf.config.list_physical_devices('GPU')
 ```
+
+If you have multiple GPUs and want to use a specific one, you can set the `CUDA_VISIBLE_DEVICES` environment variable to the index of the GPU you want to use, e.g. `export CUDA_VISIBLE_DEVICES=0` for the first GPU.
