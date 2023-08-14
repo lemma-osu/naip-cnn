@@ -24,3 +24,7 @@ CRS = (
     'AXIS["X",EAST],'
     'AXIS["Y",NORTH]]'
 )
+
+# The NAIP bands stored during sampling. Subsets of these bands may be used during
+# training, but all bands will be present in the datasets.
+BANDS = ("R", "G", "B", "N")

@@ -5,7 +5,6 @@ images.
 
 from __future__ import annotations
 
-import io
 import math
 
 import ee
@@ -14,7 +13,8 @@ import numpy as np
 import pandas as pd
 import rasterio
 from joblib import Parallel, delayed
-from PIL import Image
+
+from naip_cnn.config import BANDS
 
 
 def _create_point_grid(*, bounds, spacing: float, crs: str) -> gpd.GeoDataFrame:
@@ -211,49 +211,17 @@ def extract_footprints_from_dataframe(
     return pd.concat(gdfs).drop(columns="geometry").reset_index(drop=True)
 
 
-def _parse_pixel_array(
+def parse_pixel_array(
     footprint: pd.Series,
     *,
     shape: tuple[int] = (30, 30),
-    bands: tuple[str] = ("R", "G", "B", "N"),
     dtype: np.dtype = np.uint8,
 ) -> np.ndarray:
     """Parse a footprint of pixel values into a numpy array"""
-    features = np.empty((*shape, len(bands)), dtype=dtype)
+    features = np.empty((*shape, len(BANDS)), dtype=dtype)
 
-    for i, band in enumerate(bands):
+    for i, band in enumerate(BANDS):
         values = footprint[band]
         features[..., i] = np.array(values).reshape(shape)
 
     return features
-
-
-def footprint_to_bytes(
-    footprint: pd.Series,
-    *,
-    shape: tuple[int] = (30, 30),
-    bands: tuple[str] = ("R", "G", "B", "N"),
-    dtype: np.dtype = np.uint8,
-) -> bytes:
-    """Encode a footprint with flat arrays of pixel values to PNG bytes.
-
-    Parameters
-    ----------
-    footprint : pd.Series
-        A series including arrays of pixel values.
-    shape : tuple[int]
-        The shape of the footprint, in pixels.
-    bands : tuple[str]
-        The bands to parse.
-    dtype : np.dtype
-        The dtype to cast the pixel values to.
-
-    Returns
-    -------
-    bytes
-        The PNG-encoded footprint image.
-    """
-    array = _parse_pixel_array(footprint, shape=shape, bands=bands, dtype=dtype)
-    buffer = io.BytesIO()
-    Image.fromarray(array).save(buffer, format="PNG")
-    return buffer.getvalue()
