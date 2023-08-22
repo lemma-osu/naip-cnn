@@ -10,6 +10,10 @@
 	"mounts": [
 		"source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached"
 	],
+	"containerEnv": {
+		// Silence TF info and warning messages
+		"TF_CPP_MIN_LOG_LEVEL": "2"
+	},
 	"customizations": {
 		"vscode": {
 			"extensions": [
