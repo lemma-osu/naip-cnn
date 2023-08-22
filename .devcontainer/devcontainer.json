@@ -31,5 +31,5 @@
 	"runArgs": [
 		"--gpus=all"
 	],
-	"postCreateCommand": "git config core.editor 'code --wait'"
+	"postCreateCommand": "git config core.editor 'code --wait' && pre-commit install"
 }

@@ -28,7 +28,7 @@ class Dataset:
         shape : tuple[int, int]
             The shape of the image, in pixels.
         n : int
-            The number of samples in the dataset. Note that this is currently used to 
+            The number of samples in the dataset. Note that this is currently used to
             identify datasets, not to adjust the number of samples.
         name : str
             The name of the dataset to load.

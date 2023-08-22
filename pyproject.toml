@@ -29,8 +29,7 @@ dependencies = [
     "h5py",
     "openlocationcode",
     "ipykernel",
-    "black[jupyter]",
-    "ruff",
+    "pre-commit",
 ]
 
 [tool.hatch.version]
