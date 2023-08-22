@@ -161,7 +161,7 @@ def extract_footprints_from_dataframe(
     proj: ee.Projection,
     chunk_size: int = 5_000,
 ) -> pd.DataFrame:
-    """Extract a dataframe of pixel values from an image over a dataframe of geometries.
+    """Extract pixel values from an image over a dataframe of Point geometries.
 
     Parameters
     ----------
