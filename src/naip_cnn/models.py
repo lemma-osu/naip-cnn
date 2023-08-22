@@ -36,6 +36,6 @@ def CNN_v1(
 
     optimizer = Adam(learning_rate=learn_rate)
 
-    model.compile(loss="mean_squared_error", optimizer=optimizer)
+    model.compile(loss="mean_squared_error", optimizer=optimizer, metrics=["mae"])
 
     return model
