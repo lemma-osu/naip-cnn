@@ -28,6 +28,3 @@ CRS = (
 # The NAIP bands stored during sampling. Subsets of these bands may be used during
 # training, but all bands will be present in the datasets.
 BANDS = ("R", "G", "B", "N")
-
-# This will be used as the NODATA value for exported NAIP imagery.
-NODATA = -32768
