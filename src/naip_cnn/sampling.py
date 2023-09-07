@@ -144,13 +144,39 @@ def _create_footprint_at_xy(
     return ee.Geometry.Rectangle([xmin, ymin, xmax, ymax], proj=proj, geodesic=False)
 
 
+def _create_footprint_at_point(
+        point: ee.Feature, *, dims: tuple[int, int], proj: ee.Projection
+) -> ee.Geometry:
+    """Create a rectangular footprint centered on a Point feature."""
+    geom = point.geometry()
+    x = geom.transform(proj).coordinates().getNumber(0)
+    y = geom.transform(proj).coordinates().getNumber(1)
+
+    xmin = x.subtract(dims[0] // 2)
+    ymin = y.subtract(dims[1] // 2)
+    xmax = x.add(dims[0] // 2)
+    ymax = y.add(dims[1] // 2)
+
+    footprint = ee.Geometry.Rectangle([xmin, ymin, xmax, ymax], proj=proj, geodesic=False)
+    # TODO: add id to footprint
+    return ee.Feature(footprint, {"height": dims[0], "width": dims[1]})
+
 def _extract_values_at_footprint(
-    *, img: ee.Image, geom: ee.Geometry, proj: ee.Projection
-) -> ee.Dictionary:
+    footprint: ee.Feature, *, img: ee.Image, proj: ee.Projection, scale: int = 1, drop_if_null: bool = True,
+) -> ee.Feature:
     """Extract a footprint of pixel values from an image over a geometry."""
-    return img.reduceRegion(
-        reducer=ee.Reducer.toList(), geometry=geom, scale=1, crs=proj
+    values = img.reduceRegion(
+        reducer=ee.Reducer.toList(), geometry=footprint.geometry(), scale=scale, crs=proj
     )
+
+    if drop_if_null:
+        # If masked values are sampled, there will be fewer pixels than expected
+        footprint_area = footprint.getNumber("height").multiply(footprint.getNumber("width"))
+        n_pixels = footprint_area.divide(scale * scale)
+        has_nulls = values.values().map(lambda v: ee.List(v).size().lt(n_pixels)).contains(1)
+        return ee.Algorithms.If(has_nulls, None, footprint.set(values))
+
+    return footprint.set(values)
 
 
 def extract_footprints_from_dataframe(
