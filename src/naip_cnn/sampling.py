@@ -145,7 +145,7 @@ def _create_footprint_at_xy(
 
 
 def _create_footprint_at_point(
-        point: ee.Feature, *, dims: tuple[int, int], proj: ee.Projection
+    point: ee.Feature, *, dims: tuple[int, int], proj: ee.Projection
 ) -> ee.Geometry:
     """Create a rectangular footprint centered on a Point feature."""
     geom = point.geometry()
@@ -157,23 +157,38 @@ def _create_footprint_at_point(
     xmax = x.add(dims[0] // 2)
     ymax = y.add(dims[1] // 2)
 
-    footprint = ee.Geometry.Rectangle([xmin, ymin, xmax, ymax], proj=proj, geodesic=False)
+    footprint = ee.Geometry.Rectangle(
+        [xmin, ymin, xmax, ymax], proj=proj, geodesic=False
+    )
     # TODO: add id to footprint
     return ee.Feature(footprint, {"height": dims[0], "width": dims[1]})
 
+
 def _extract_values_at_footprint(
-    footprint: ee.Feature, *, img: ee.Image, proj: ee.Projection, scale: int = 1, drop_if_null: bool = True,
+    footprint: ee.Feature,
+    *,
+    img: ee.Image,
+    proj: ee.Projection,
+    scale: int = 1,
+    drop_if_null: bool = True,
 ) -> ee.Feature:
     """Extract a footprint of pixel values from an image over a geometry."""
     values = img.reduceRegion(
-        reducer=ee.Reducer.toList(), geometry=footprint.geometry(), scale=scale, crs=proj
+        reducer=ee.Reducer.toList(),
+        geometry=footprint.geometry(),
+        scale=scale,
+        crs=proj,
     )
 
     if drop_if_null:
         # If masked values are sampled, there will be fewer pixels than expected
-        footprint_area = footprint.getNumber("height").multiply(footprint.getNumber("width"))
+        footprint_area = footprint.getNumber("height").multiply(
+            footprint.getNumber("width")
+        )
         n_pixels = footprint_area.divide(scale * scale)
-        has_nulls = values.values().map(lambda v: ee.List(v).size().lt(n_pixels)).contains(1)
+        has_nulls = (
+            values.values().map(lambda v: ee.List(v).size().lt(n_pixels)).contains(1)
+        )
         return ee.Algorithms.If(has_nulls, None, footprint.set(values))
 
     return footprint.set(values)

@@ -94,7 +94,7 @@ class Dataset:
         return ds.apply(tf.data.experimental.assert_cardinality(self.n))
 
     def load_train(self, year: int = 2020, bands: tuple[str] = BANDS):
-        """Load a Tensorflow Dataset of training NAIP images from a Parquet file.
+        """Load a Tensorflow Dataset of training NAIP images from an HDF5 file.
 
         Parameters
         ----------
@@ -111,7 +111,7 @@ class Dataset:
         )
 
     def load_val(self, year: int = 2020, bands: tuple[str] = BANDS):
-        """Load a Tensorflow Dataset of validation NAIP images from a Parquet file.
+        """Load a Tensorflow Dataset of validation NAIP images from an HDF5 file.
 
         Parameters
         ----------
@@ -124,7 +124,7 @@ class Dataset:
         return ds.skip(self.n_train).take(self.n_val)
 
     def load_test(self, year: int = 2020, bands: tuple[str] = BANDS):
-        """Load a Tensorflow Dataset of testing NAIP images from a Parquet file.
+        """Load a Tensorflow Dataset of testing NAIP images from an HDF5 file.
 
         Parameters
         ----------
