@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import h5py
 import tensorflow as tf
 import tensorflow_io as tfio
 
@@ -13,11 +14,10 @@ class Dataset:
 
     def __init__(
         self,
-        shape: tuple[int, int] = (30, 30),
-        n: int = 30_000,
-        name: str = "malheur",
+        shape: tuple[int, int] = (150, 150),
+        name: str = "MAL2016_CanyonCreek",
         label: str = "cancov",
-        root_dir: str = "../data",
+        root_dir: str = "../data/training",
         train_split: float = 0.8,
         val_split: float = 0.1,
         test_split: float = 0.1,
@@ -27,9 +27,6 @@ class Dataset:
         ----------
         shape : tuple[int, int]
             The shape of the image, in pixels.
-        n : int
-            The number of samples in the dataset. Note that this is currently used to
-            identify datasets, not to adjust the number of samples.
         name : str
             The name of the dataset to load.
         label : str
@@ -52,20 +49,22 @@ class Dataset:
             raise ValueError("train_split + val_split + test_split must equal 1.0")
 
         self.shape = shape
-        self.n = n
         self.name = name
         self.label = label
         self.root_dir = Path(root_dir)
-        self.n_train = int(n * train_split)
-        self.n_val = int(n * val_split)
-        self.n_test = n - self.n_train - self.n_val
 
-    def _get_path(self, year: int = 2020) -> Path:
-        shape = f"{self.shape[0]}x{self.shape[1]}"
-        filename = "_".join([self.name, str(self.n), shape, str(year)]) + ".h5"
-        return self.root_dir / filename
+        self.str_shape = f"{self.shape[0]}x{self.shape[1]}"
+        self.path = self.root_dir / ("_".join([self.name, self.str_shape]) + ".h5")
 
-    def _load(self, year: int = 2020, bands: tuple[str] = BANDS):
+        self.n_train = int(len(self) * train_split)
+        self.n_val = int(len(self) * val_split)
+        self.n_test = len(self) - self.n_train - self.n_val
+
+    def __len__(self) -> int:
+        with h5py.File(self.path, "r") as f:
+            return f[self.label].shape[0]
+
+    def _load(self, bands: tuple[str] = BANDS):
         """Load a Tensorflow Dataset of NAIP images from an HDF5 file.
 
         Parameters
@@ -83,7 +82,7 @@ class Dataset:
 
         band_idxs = [BANDS.index(band) for band in bands]
 
-        path = self._get_path(year).as_posix()
+        path = self.path.as_posix()
         images = tfio.IODataset.from_hdf5(path, dataset="/image").map(
             preprocess_image, num_parallel_calls=tf.data.AUTOTUNE
         )
@@ -91,9 +90,9 @@ class Dataset:
 
         ds = tf.data.Dataset.zip((images, labels))
         # Set the number of samples in the dataset
-        return ds.apply(tf.data.experimental.assert_cardinality(self.n))
+        return ds.apply(tf.data.experimental.assert_cardinality(len(self)))
 
-    def load_train(self, year: int = 2020, bands: tuple[str] = BANDS):
+    def load_train(self, bands: tuple[str] = BANDS):
         """Load a Tensorflow Dataset of training NAIP images from an HDF5 file.
 
         Parameters
@@ -103,14 +102,14 @@ class Dataset:
         bands : tuple[str]
             The bands to parse. This can be used to select specific subsets.
         """
-        ds = self._load(year=year, bands=bands)
+        ds = self._load(bands=bands)
         ds_train = ds.take(self.n_train)
 
         return ds_train.map(
             lambda x, y: (_augment_image(x), y), num_parallel_calls=tf.data.AUTOTUNE
         )
 
-    def load_val(self, year: int = 2020, bands: tuple[str] = BANDS):
+    def load_val(self, bands: tuple[str] = BANDS):
         """Load a Tensorflow Dataset of validation NAIP images from an HDF5 file.
 
         Parameters
@@ -120,10 +119,10 @@ class Dataset:
         bands : tuple[str]
             The bands to parse. This can be used to select specific subsets.
         """
-        ds = self._load(year=year, bands=bands)
+        ds = self._load(bands=bands)
         return ds.skip(self.n_train).take(self.n_val)
 
-    def load_test(self, year: int = 2020, bands: tuple[str] = BANDS):
+    def load_test(self, bands: tuple[str] = BANDS):
         """Load a Tensorflow Dataset of testing NAIP images from an HDF5 file.
 
         Parameters
@@ -133,7 +132,7 @@ class Dataset:
         bands : tuple[str]
             The bands to parse. This can be used to select specific subsets.
         """
-        ds = self._load(year=year, bands=bands)
+        ds = self._load(bands=bands)
         return ds.skip(self.n_train + self.n_val).take(self.n_test)
 
 
