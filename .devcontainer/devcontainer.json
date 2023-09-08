@@ -8,7 +8,8 @@
 		"dockerfile": "./Dockerfile"
 	},
 	"mounts": [
-		"source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached"
+		"source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached",
+		"source=${env:HOME}${env:USERPROFILE}/.config,target=/root/.config,type=bind,consistency=cached"
 	],
 	"containerEnv": {
 		// Silence TF info and warning messages
