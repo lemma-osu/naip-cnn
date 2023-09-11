@@ -40,6 +40,7 @@ def extract_values_at_footprint(
     proj: ee.Projection,
     scale: int = 1,
     drop_if_null: bool = True,
+    **kwargs,
 ) -> ee.Feature:
     """Extract a footprint of pixel values from an image over a geometry."""
     values = img.reduceRegion(
@@ -47,6 +48,7 @@ def extract_values_at_footprint(
         geometry=footprint.geometry(),
         scale=scale,
         crs=proj,
+        **kwargs,
     )
 
     if drop_if_null:
