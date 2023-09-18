@@ -106,7 +106,7 @@ class Dataset:
         ds_train = ds.take(self.n_train)
 
         return ds_train.map(
-            lambda x, y: (_augment_image(x), y), num_parallel_calls=tf.data.AUTOTUNE
+            lambda x, y: _augment(x, y), num_parallel_calls=tf.data.AUTOTUNE
         )
 
     def load_val(self, bands: tuple[str] = BANDS):
@@ -137,23 +137,38 @@ class Dataset:
 
 
 @tf.autograph.experimental.do_not_convert
-def _augment_image(img: tf.Tensor) -> tf.Tensor:
+def _augment(img: tf.Tensor, label: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor]:
     """Augment an image Tensor.
 
     Parameters
     ----------
     img : tf.Tensor
         The image Tensor to augment.
+    label : tf.Tensor
+        The label Tensor to augment.
 
     Returns
     -------
     tf.Tensor
         The augmented image Tensor.
     """
-    img = tf.image.random_flip_left_right(img)
-    img = tf.image.random_flip_up_down(img)
+    flip_lr = tf.random.uniform([], 0, 1.0, dtype=tf.float32)
+    flip_ud = tf.random.uniform([], 0, 1.0, dtype=tf.float32)
+
+    # We need a channel dimension to use the tf.image functions
+    label = tf.expand_dims(label, axis=-1)
+
+    img = tf.cond(flip_lr > 0.5, lambda: tf.image.flip_left_right(img), lambda: img)
+    img = tf.cond(flip_ud > 0.5, lambda: tf.image.flip_up_down(img), lambda: img)
+    label = tf.cond(
+        flip_lr > 0.5, lambda: tf.image.flip_left_right(label), lambda: label
+    )
+    label = tf.cond(flip_ud > 0.5, lambda: tf.image.flip_up_down(label), lambda: label)
+
+    label = tf.squeeze(label, axis=-1)
 
     contrast_factor = tf.random.uniform([], 0.5, 1.5)
     brightness_factor = tf.random.uniform([], -0.2, 0.2)
+    img = tf.clip_by_value(img * contrast_factor + brightness_factor, 0.0, 1.0)
 
-    return tf.clip_by_value(img * contrast_factor + brightness_factor, 0.0, 1.0)
+    return img, label
