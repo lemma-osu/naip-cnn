@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 import h5py
@@ -7,133 +8,6 @@ import tensorflow as tf
 import tensorflow_io as tfio
 
 from naip_cnn.config import BANDS
-
-
-class Dataset:
-    """A Dataset of NAIP images and associated forest attribute labels, stored in H5."""
-
-    def __init__(
-        self,
-        shape: tuple[int, int] = (150, 150),
-        name: str = "MAL2016_CanyonCreek",
-        label: str = "cancov",
-        root_dir: str = "../data/training",
-        train_split: float = 0.8,
-        val_split: float = 0.1,
-        test_split: float = 0.1,
-    ) -> None:
-        """
-        Parameters
-        ----------
-        shape : tuple[int, int]
-            The shape of the image, in pixels.
-        name : str
-            The name of the dataset to load.
-        label : str
-            The name of the label variable.
-        root_dir : str
-            The root directory of the data.
-        train_split : float
-            The proportion of the dataset to use for training.
-        val_split : float
-            The proportion of the dataset to use for validation.
-        test_split : float
-            The proportion of the dataset to use for testing.
-
-        Raises
-        ------
-        ValueError
-            If the train, validation, and test splits do not sum to 1.0.
-        """
-        if train_split + val_split + test_split != 1.0:
-            raise ValueError("train_split + val_split + test_split must equal 1.0")
-
-        self.shape = shape
-        self.name = name
-        self.label = label
-        self.root_dir = Path(root_dir)
-
-        self.str_shape = f"{self.shape[0]}x{self.shape[1]}"
-        self.path = self.root_dir / ("_".join([self.name, self.str_shape]) + ".h5")
-
-        self.n_train = int(len(self) * train_split)
-        self.n_val = int(len(self) * val_split)
-        self.n_test = len(self) - self.n_train - self.n_val
-
-    def __len__(self) -> int:
-        with h5py.File(self.path, "r") as f:
-            return f[self.label].shape[0]
-
-    def _load(self, bands: tuple[str] = BANDS):
-        """Load a Tensorflow Dataset of NAIP images from an HDF5 file.
-
-        Parameters
-        ----------
-        year : int
-            The year of the NAIP images to load.
-        bands : tuple[str]
-            The bands to parse. This can be used to select specific subsets.
-        """
-
-        def preprocess_image(image: tf.Tensor) -> tf.Tensor:
-            """Cast byte image to float and select bands."""
-            image = tf.gather(image, band_idxs, axis=-1)
-            return tf.cast(image, tf.float32) / 255
-
-        band_idxs = [BANDS.index(band) for band in bands]
-
-        path = self.path.as_posix()
-        images = tfio.IODataset.from_hdf5(path, dataset="/image").map(
-            preprocess_image, num_parallel_calls=tf.data.AUTOTUNE
-        )
-        labels = tfio.IODataset.from_hdf5(path, dataset=f"/{self.label}")
-
-        ds = tf.data.Dataset.zip((images, labels))
-        # Set the number of samples in the dataset
-        return ds.apply(tf.data.experimental.assert_cardinality(len(self)))
-
-    def load_train(self, bands: tuple[str] = BANDS):
-        """Load a Tensorflow Dataset of training NAIP images from an HDF5 file.
-
-        Parameters
-        ----------
-        year : int
-            The year of the NAIP images to load.
-        bands : tuple[str]
-            The bands to parse. This can be used to select specific subsets.
-        """
-        ds = self._load(bands=bands)
-        ds_train = ds.take(self.n_train)
-
-        return ds_train.map(
-            lambda x, y: _augment(x, y), num_parallel_calls=tf.data.AUTOTUNE
-        )
-
-    def load_val(self, bands: tuple[str] = BANDS):
-        """Load a Tensorflow Dataset of validation NAIP images from an HDF5 file.
-
-        Parameters
-        ----------
-        year : int
-            The year of the NAIP images to load.
-        bands : tuple[str]
-            The bands to parse. This can be used to select specific subsets.
-        """
-        ds = self._load(bands=bands)
-        return ds.skip(self.n_train).take(self.n_val)
-
-    def load_test(self, bands: tuple[str] = BANDS):
-        """Load a Tensorflow Dataset of testing NAIP images from an HDF5 file.
-
-        Parameters
-        ----------
-        year : int
-            The year of the NAIP images to load.
-        bands : tuple[str]
-            The bands to parse. This can be used to select specific subsets.
-        """
-        ds = self._load(bands=bands)
-        return ds.skip(self.n_train + self.n_val).take(self.n_test)
 
 
 @tf.autograph.experimental.do_not_convert
@@ -172,3 +46,159 @@ def _augment(img: tf.Tensor, label: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor]:
     img = tf.clip_by_value(img * contrast_factor + brightness_factor, 0.0, 1.0)
 
     return img, label
+
+
+class TrainTestValidationDataset(ABC):
+    """A dataset that can be split into train, test, and validation sets."""
+
+    def __init__(self, train_split=0.8, val_split=0.1, test_split=0.1):
+        if train_split + val_split + test_split != 1.0:
+            raise ValueError("train_split + val_split + test_split must equal 1.0")
+
+        self.train_split = train_split
+        self.val_split = val_split
+        self.test_split = test_split
+
+        self.n_train = int(len(self) * self.train_split)
+        self.n_val = int(len(self) * self.val_split)
+        self.n_test = len(self) - self.n_train - self.n_val
+
+    @abstractmethod
+    def __len__(self) -> int:
+        """Return the total number of samples in the dataset."""
+        ...
+
+    @abstractmethod
+    def _load(self, **kwargs):
+        """Load the full dataset."""
+        ...
+
+    def load_train(self, **kwargs):
+        return self._load(**kwargs).take(self.n_train)
+
+    def load_val(self, **kwargs):
+        return self._load(**kwargs).skip(self.n_train).take(self.n_val)
+
+    def load_test(self, **kwargs):
+        return self._load(**kwargs).skip(self.n_train + self.n_val).take(self.n_test)
+
+
+class HDF5Dataset(TrainTestValidationDataset):
+    """A dataset of features and labels stored in an HDF5 file."""
+
+    def __init__(self, path, feature_name: str, label_name: str, **kwargs):
+        self.path = path
+        self.feature_name = feature_name
+        self.label_name = label_name
+        super().__init__(**kwargs)
+
+    def _load(self) -> tf.data.Dataset:
+        """Load a zipped dataset of features and labels from an HDF5 file."""
+        features = tfio.IODataset.from_hdf5(self.path, dataset=f"/{self.feature_name}")
+        labels = tfio.IODataset.from_hdf5(self.path, dataset=f"/{self.label_name}")
+        ds = tf.data.Dataset.zip((features, labels))
+        return ds.apply(tf.data.experimental.assert_cardinality(len(self)))
+
+    def __len__(self):
+        """Return the total number of samples, based on the first dataset."""
+        with h5py.File(self.path, "r") as f:
+            first_key = list(f.keys())[0]
+            return f[first_key].shape[0]
+
+
+class NAIPDataset(HDF5Dataset):
+    """A dataset of NAIP images and associated forest attribute labels."""
+
+    def __init__(
+        self,
+        shape: tuple[int, int] = (150, 150),
+        name: str = "MAL2016_CanyonCreek",
+        label: str = "cover",
+        root_dir: str = "../data/training",
+        **kwargs,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        shape : tuple[int, int]
+            The shape of the image, in pixels.
+        name : str
+            The name of the dataset to load.
+        label : str
+            The name of the label variable.
+        root_dir : str
+            The root directory of the data.
+        **kwargs
+            Additional arguments passed to HDF5Dataset.
+        """
+        self.shape = shape
+        self.name = name
+        self.root_dir = Path(root_dir)
+
+        str_shape = f"{self.shape[0]}x{self.shape[1]}"
+        path = self.root_dir / ("_".join([self.name, str_shape]) + ".h5")
+        super().__init__(
+            path=path.as_posix(), feature_name="image", label_name=label, **kwargs
+        )
+
+    def _load(self, bands: tuple[str] = BANDS):
+        """Load a Tensorflow Dataset of NAIP images from an HDF5 file.
+
+        Parameters
+        ----------
+        bands : tuple[str]
+            The bands to parse. This can be used to select specific subsets.
+        """
+        band_idxs = [BANDS.index(band) for band in bands]
+
+        def preprocess_image(image: tf.Tensor) -> tf.Tensor:
+            """Cast byte image to float and select bands."""
+            image = tf.gather(image, band_idxs, axis=-1)
+            return tf.cast(image, tf.float32) / 255
+
+        return (
+            super()
+            ._load()
+            .map(
+                lambda x, y: (preprocess_image(x), y),
+                num_parallel_calls=tf.data.AUTOTUNE,
+            )
+        )
+
+    def load_train(self, bands: tuple[str] = BANDS, augmenter=_augment):
+        """Load a Tensorflow Dataset of training NAIP images from an HDF5 file.
+
+        Parameters
+        ----------
+        bands : tuple[str]
+            The bands to parse. This can be used to select specific subsets.
+        augmenter : function
+            The function to use for data augmentation. Must take and return a tuple of
+            (image, label) tensors.
+        """
+        ds = super().load_train(bands=bands)
+        if augmenter is not None:
+            ds = ds.map(
+                lambda x, y: augmenter(x, y), num_parallel_calls=tf.data.AUTOTUNE
+            )
+        return ds
+
+    def load_val(self, bands: tuple[str] = BANDS):
+        """Load a Tensorflow Dataset of validation NAIP images from an HDF5 file.
+
+        Parameters
+        ----------
+        bands : tuple[str]
+            The bands to parse. This can be used to select specific subsets.
+        """
+        return super().load_val(bands=bands)
+
+    def load_test(self, bands: tuple[str] = BANDS):
+        """Load a Tensorflow Dataset of testing NAIP images from an HDF5 file.
+
+        Parameters
+        ----------
+        bands : tuple[str]
+            The bands to parse. This can be used to select specific subsets.
+        """
+        return super().load_test(bands=bands)
