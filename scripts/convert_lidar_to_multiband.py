@@ -1,5 +1,8 @@
 """
-This script converts single-band LiDAR rasters to multiband rasters.
+This script converts single-band LiDAR rasters to multiband rasters which can be 
+ingested into Earth Engine prior to sampling. After running this script, the generated 
+rasters should be uploaded manually to Earth Engine, and 
+`scripts/collect_lidar_assets.js` should be run in the Code Editor.
 """
 
 from pathlib import Path
@@ -26,7 +29,9 @@ DATASETS = {
         "p100": "MAL2008_CampCreek_FIRST_RETURNS_elev_max_1p5plus_30METERS.tif",
     },
     "MAL2008_2009_MalheurRiver": {
-        "cover": "MAL2008_2009_MalheurRiver_FIRST_RETURNS_1st_cover_above1p5_30METERS.tif",
+        "cover": (
+            "MAL2008_2009_MalheurRiver_FIRST_RETURNS_1st_cover_above1p5_30METERS.tif"
+        ),
         "p25": "MAL2008_2009_MalheurRiver_FIRST_RETURNS_elev_P25_1p5plus_30METERS.tif",
         "p50": "MAL2008_2009_MalheurRiver_FIRST_RETURNS_elev_ave_1p5plus_30METERS.tif",
         "p95": "MAL2008_2009_MalheurRiver_FIRST_RETURNS_elev_P95_1p5plus_30METERS.tif",
@@ -70,7 +75,9 @@ DATASETS = {
     },
     "MAL2018_Aldrich_UpperBear": {
         # Note this uses all_cover instead of 1st_cover
-        "cover": "MAL2018_Aldrich_UpperBear_FIRST_RETURNS_all_cover_above1p5_30METERS.tif",
+        "cover": (
+            "MAL2018_Aldrich_UpperBear_FIRST_RETURNS_all_cover_above1p5_30METERS.tif"
+        ),
         "p25": "MAL2018_Aldrich_UpperBear_FIRST_RETURNS_elev_P25_1p5plus_30METERS.tif",
         "p50": "MAL2018_Aldrich_UpperBear_FIRST_RETURNS_elev_ave_1p5plus_30METERS.tif",
         "p95": "MAL2018_Aldrich_UpperBear_FIRST_RETURNS_elev_P95_1p5plus_30METERS.tif",
@@ -97,7 +104,7 @@ DATASETS = {
         "p50": "MAL2020_UpperJohnDay_FIRST_RETURNS_elev_ave_1p5plus_30METERS.tif",
         "p95": "MAL2020_UpperJohnDay_FIRST_RETURNS_elev_P95_1p5plus_30METERS.tif",
         "p100": "MAL2020_UpperJohnDay_FIRST_RETURNS_elev_max_1p5plus_30METERS.tif",
-    }
+    },
 }
 
 
