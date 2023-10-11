@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from functools import cached_property
 from pathlib import Path
 
 import h5py
@@ -92,18 +93,27 @@ class HDF5Dataset(TrainTestValidationDataset):
         self.label_name = label_name
         super().__init__(**kwargs)
 
-    def _load(self) -> tf.data.Dataset:
+    @cached_property
+    def n_samples(self) -> int:
+        """The total number of samples, based on the first dataset."""
+        with h5py.File(self.path, "r") as f:
+            first_key = list(f.keys())[0]
+            return f[first_key].shape[0]
+
+    def __len__(self) -> int:
+        """Return the total number of samples, based on the first dataset."""
+        return self.n_samples
+
+    def _load(self, shuffle: bool = True, seed: int = 0) -> tf.data.Dataset:
         """Load a zipped dataset of features and labels from an HDF5 file."""
         features = tfio.IODataset.from_hdf5(self.path, dataset=f"/{self.feature_name}")
         labels = tfio.IODataset.from_hdf5(self.path, dataset=f"/{self.label_name}")
         ds = tf.data.Dataset.zip((features, labels))
-        return ds.apply(tf.data.experimental.assert_cardinality(len(self)))
 
-    def __len__(self):
-        """Return the total number of samples, based on the first dataset."""
-        with h5py.File(self.path, "r") as f:
-            first_key = list(f.keys())[0]
-            return f[first_key].shape[0]
+        if shuffle:
+            ds = ds.shuffle(self.n_samples, seed=seed)
+
+        return ds.apply(tf.data.experimental.assert_cardinality(self.n_samples))
 
 
 class NAIPDataset(HDF5Dataset):
@@ -141,7 +151,7 @@ class NAIPDataset(HDF5Dataset):
             path=path.as_posix(), feature_name="image", label_name=label, **kwargs
         )
 
-    def _load(self, bands: tuple[str] = BANDS):
+    def _load(self, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0):
         """Load a Tensorflow Dataset of NAIP images from an HDF5 file.
 
         Parameters
@@ -158,14 +168,20 @@ class NAIPDataset(HDF5Dataset):
 
         return (
             super()
-            ._load()
+            ._load(shuffle=shuffle, seed=seed)
             .map(
                 lambda x, y: (preprocess_image(x), y),
                 num_parallel_calls=tf.data.AUTOTUNE,
             )
         )
 
-    def load_train(self, bands: tuple[str] = BANDS, augmenter=_augment):
+    def load_train(
+        self,
+        bands: tuple[str] = BANDS,
+        augmenter=_augment,
+        shuffle: bool = True,
+        seed: int = 0,
+    ):
         """Load a Tensorflow Dataset of training NAIP images from an HDF5 file.
 
         Parameters
@@ -175,30 +191,42 @@ class NAIPDataset(HDF5Dataset):
         augmenter : function
             The function to use for data augmentation. Must take and return a tuple of
             (image, label) tensors.
+        shuffle : bool
+            If True, the dataset will be shuffled prior to splitting.
+        seed : int
+            The random seed to use for shuffling.
         """
-        ds = super().load_train(bands=bands)
+        ds = super().load_train(bands=bands, shuffle=shuffle, seed=seed)
         if augmenter is not None:
             ds = ds.map(
                 lambda x, y: augmenter(x, y), num_parallel_calls=tf.data.AUTOTUNE
             )
         return ds
 
-    def load_val(self, bands: tuple[str] = BANDS):
+    def load_val(self, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0):
         """Load a Tensorflow Dataset of validation NAIP images from an HDF5 file.
 
         Parameters
         ----------
         bands : tuple[str]
             The bands to parse. This can be used to select specific subsets.
+        shuffle : bool
+            If True, the dataset will be shuffled prior to splitting.
+        seed : int
+            The random seed to use for shuffling.
         """
-        return super().load_val(bands=bands)
+        return super().load_val(bands=bands, shuffle=shuffle, seed=seed)
 
-    def load_test(self, bands: tuple[str] = BANDS):
+    def load_test(self, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0):
         """Load a Tensorflow Dataset of testing NAIP images from an HDF5 file.
 
         Parameters
         ----------
         bands : tuple[str]
             The bands to parse. This can be used to select specific subsets.
+        shuffle : bool
+            If True, the dataset will be shuffled prior to splitting.
+        seed : int
+            The random seed to use for shuffling.
         """
-        return super().load_test(bands=bands)
+        return super().load_test(bands=bands, shuffle=shuffle, seed=seed)
