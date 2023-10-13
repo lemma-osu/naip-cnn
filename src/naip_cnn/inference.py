@@ -10,7 +10,7 @@ from naip_cnn.config import BANDS
 def parse_imagery_tfrecord(
     serialized_example: bytes,
     bands: tuple[str] = BANDS,
-    shape: tuple[int, int] = (30, 30),
+    shape: tuple[int, int] = (150, 150),
 ) -> tf.Tensor:
     """Parse a single example from a TFRecord file containing NAIP imagery.
 
