@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import ee
 
-from naip_cnn.config import CRS
+from naip_cnn import config
 
 
 class Acquisition:
@@ -11,9 +13,12 @@ class Acquisition:
         self.start_date = start_date
         self.end_date = end_date
 
+    def __repr__(self) -> str:
+        return f"<Acquisition name={self.name}>"
+
     @property
     def proj(self):
-        return ee.Projection(CRS)
+        return ee.Projection(config.CRS)
 
     @property
     def geometry(self):
@@ -35,22 +40,27 @@ class Acquisition:
             .reproject(self.proj.atScale(30))
         )
 
-    def load_naip(self):
+    def load_naip(self, scale: float = config.NAIP_RES):
         return (
             ee.ImageCollection("USDA/NAIP/DOQQ")
             .filterDate(self.start_date, self.end_date)
             .filterBounds(self.geometry.bounds())
             .mosaic()
             .updateMask(self.mask)
-            .reproject(self.proj.atScale(1))
+            .reproject(self.proj.atScale(scale))
         )
 
-    def load_lidar(self):
+    def load_lidar(self, scale: float = config.LIDAR_RES):
         return (
             ee.Image(f"projects/ee-maptheforests/assets/malheur_lidar/{self.name}")
             .updateMask(self.mask)
-            .reproject(self.proj.atScale(30))
+            .reproject(self.proj.atScale(scale))
         )
+
+    @staticmethod
+    def from_name(name) -> Acquisition:
+        """Return an acquisition from its name."""
+        return eval(name)
 
 
 # OR NAIP years: 2004 (RGB), 2005 (RGB), 2009, 2011, 2012, 2014, 2016, 2020, 2022

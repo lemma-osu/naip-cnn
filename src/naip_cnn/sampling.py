@@ -29,7 +29,6 @@ def point_to_footprint(
     footprint = ee.Geometry.Rectangle(
         [xmin, ymin, xmax, ymax], proj=proj, geodesic=False
     )
-    # TODO: add id to footprint
     return ee.Feature(footprint, {"height": dims[0], "width": dims[1]})
 
 

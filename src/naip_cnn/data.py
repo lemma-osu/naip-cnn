@@ -8,7 +8,9 @@ import h5py
 import tensorflow as tf
 import tensorflow_io as tfio
 
-from naip_cnn.config import BANDS
+from naip_cnn.acquisitions import Acquisition
+from naip_cnn.config import BANDS, TRAIN_DIR
+from naip_cnn.utils import float_to_str
 
 
 @tf.autograph.experimental.do_not_convert
@@ -60,10 +62,6 @@ class TrainTestValidationDataset(ABC):
         self.val_split = val_split
         self.test_split = test_split
 
-        self.n_train = int(len(self) * self.train_split)
-        self.n_val = int(len(self) * self.val_split)
-        self.n_test = len(self) - self.n_train - self.n_val
-
     @abstractmethod
     def __len__(self) -> int:
         """Return the total number of samples in the dataset."""
@@ -73,6 +71,18 @@ class TrainTestValidationDataset(ABC):
     def _load(self, **kwargs):
         """Load the full dataset."""
         ...
+
+    @property
+    def n_train(self):
+        return int(len(self) * self.train_split)
+
+    @property
+    def n_val(self):
+        return int(len(self) * self.val_split)
+
+    @property
+    def n_test(self):
+        return len(self) - self.n_train - self.n_val
 
     def load_train(self, **kwargs):
         return self._load(**kwargs).take(self.n_train)
@@ -87,10 +97,9 @@ class TrainTestValidationDataset(ABC):
 class HDF5Dataset(TrainTestValidationDataset):
     """A dataset of features and labels stored in an HDF5 file."""
 
-    def __init__(self, path, feature_name: str, label_name: str, **kwargs):
+    def __init__(self, path, feature_name: str, **kwargs):
         self.path = path
         self.feature_name = feature_name
-        self.label_name = label_name
         super().__init__(**kwargs)
 
     @cached_property
@@ -104,10 +113,14 @@ class HDF5Dataset(TrainTestValidationDataset):
         """Return the total number of samples, based on the first dataset."""
         return self.n_samples
 
-    def _load(self, shuffle: bool = True, seed: int = 0) -> tf.data.Dataset:
+    def _load(self, label: str, shuffle: bool = True, seed: int = 0) -> tf.data.Dataset:
         """Load a zipped dataset of features and labels from an HDF5 file."""
-        features = tfio.IODataset.from_hdf5(self.path, dataset=f"/{self.feature_name}")
-        labels = tfio.IODataset.from_hdf5(self.path, dataset=f"/{self.label_name}")
+        if not self.path.exists():
+            raise FileNotFoundError(f"{self.path} does not exist")
+        features = tfio.IODataset.from_hdf5(
+            self.path.as_posix(), dataset=f"/{self.feature_name}"
+        )
+        labels = tfio.IODataset.from_hdf5(self.path.as_posix(), dataset=f"/{label}")
         ds = tf.data.Dataset.zip((features, labels))
 
         if shuffle:
@@ -116,46 +129,113 @@ class HDF5Dataset(TrainTestValidationDataset):
         return ds.apply(tf.data.experimental.assert_cardinality(self.n_samples))
 
 
-class NAIPDataset(HDF5Dataset):
-    """A dataset of NAIP images and associated forest attribute labels."""
+class TrainingDataset(HDF5Dataset):
+    """A dataset of NAIP images and associated forest attribute labels.
+
+    This class is used both to define and generate sample datasets and to load
+    previously generated datasets.
+    """
 
     def __init__(
         self,
-        shape: tuple[int, int] = (150, 150),
-        name: str = "MAL2016_CanyonCreek",
-        label: str = "cover",
-        root_dir: str = "../data/training",
+        acquisition: Acquisition,
+        naip_res=1.0,
+        lidar_res=30.0,
+        footprint: tuple[int, int] = (150, 150),
+        spacing: float = None,
         **kwargs,
     ) -> None:
         """
         Parameters
         ----------
-        shape : tuple[int, int]
-            The shape of the image, in pixels.
-        name : str
-            The name of the dataset to load.
-        label : str
-            The name of the label variable.
-        root_dir : str
-            The root directory of the data.
+        acquisition : Acquisition
+            The NAIP-LiDAR acquisition used to build the dataset.
+        naip_res : float
+            The NAIP resolution in meters.
+        lidar_res : float
+            The LiDAR resolution in meters.
+        footprint : tuple[int, int]
+            The size of the sampled footprints in meters.
+        spacing : float
+            The spacing between sampled footprints in meters. If None, defaults to
+            the footprint width.
         **kwargs
-            Additional arguments passed to HDF5Dataset.
+            Additional arguments passed to HDF5Dataset, e.g. train_split, val_split,
         """
-        self.shape = shape
-        self.name = name
-        self.root_dir = Path(root_dir)
+        self.acquisition = acquisition
+        self.naip_res = naip_res
+        self.lidar_res = lidar_res
+        self.footprint = footprint
+        self.spacing = spacing if spacing is not None else footprint[0]
 
-        str_shape = f"{self.shape[0]}x{self.shape[1]}"
-        path = self.root_dir / ("_".join([self.name, str_shape]) + ".h5")
-        super().__init__(
-            path=path.as_posix(), feature_name="image", label_name=label, **kwargs
+        super().__init__(path=self.hdf_path, feature_name="image", **kwargs)
+
+    def __repr__(self) -> str:
+        return f"<TrainingDataset name={self.name}>"
+
+    @property
+    def name(self):
+        footprint_str = f"{self.footprint[0]}x{self.footprint[1]}"
+        naip_res_str = float_to_str(self.naip_res)
+        lidar_res_str = float_to_str(self.lidar_res)
+        spacing_str = float_to_str(self.spacing)
+        return "-".join(
+            [
+                self.acquisition.name,
+                naip_res_str,
+                lidar_res_str,
+                footprint_str,
+                spacing_str,
+            ]
         )
 
-    def _load(self, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0):
+    @staticmethod
+    def from_filename(filename: str) -> TrainingDataset:
+        """Load a TrainingDataset from a filename."""
+        basename = Path(filename).stem
+        name, naip_res, lidar_res, footprint, spacing = basename.split("-")
+
+        return TrainingDataset(
+            acquisition=Acquisition.from_name(name),
+            naip_res=float(naip_res),
+            lidar_res=float(lidar_res),
+            footprint=tuple(map(int, footprint.split("x"))),
+            spacing=float(spacing),
+        )
+
+    @property
+    def hdf_path(self):
+        """Path to the HDF5 file."""
+        return TRAIN_DIR / (self.name + ".h5")
+
+    @property
+    def csv_path(self):
+        """Path to the raw CSV file."""
+        return TRAIN_DIR / (self.name + ".csv")
+
+    @property
+    def naip_shape(self):
+        """The shape of the NAIP images in pixels."""
+        return int(self.footprint[0] // self.naip_res), int(
+            self.footprint[1] // self.naip_res
+        )
+
+    @property
+    def lidar_shape(self):
+        """The shape of the LiDAR labels in pixels."""
+        return int(self.footprint[0] // self.lidar_res), int(
+            self.footprint[1] // self.lidar_res
+        )
+
+    def _load(
+        self, label: str, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0
+    ):
         """Load a Tensorflow Dataset of NAIP images from an HDF5 file.
 
         Parameters
         ----------
+        label : str
+            The name of the label variable.
         bands : tuple[str]
             The bands to parse. This can be used to select specific subsets.
         """
@@ -168,7 +248,7 @@ class NAIPDataset(HDF5Dataset):
 
         return (
             super()
-            ._load(shuffle=shuffle, seed=seed)
+            ._load(label=label, shuffle=shuffle, seed=seed)
             .map(
                 lambda x, y: (preprocess_image(x), y),
                 num_parallel_calls=tf.data.AUTOTUNE,
@@ -177,6 +257,7 @@ class NAIPDataset(HDF5Dataset):
 
     def load_train(
         self,
+        label: str,
         bands: tuple[str] = BANDS,
         augmenter=_augment,
         shuffle: bool = True,
@@ -186,6 +267,8 @@ class NAIPDataset(HDF5Dataset):
 
         Parameters
         ----------
+        label : str
+            The name of the label variable.
         bands : tuple[str]
             The bands to parse. This can be used to select specific subsets.
         augmenter : function
@@ -196,18 +279,22 @@ class NAIPDataset(HDF5Dataset):
         seed : int
             The random seed to use for shuffling.
         """
-        ds = super().load_train(bands=bands, shuffle=shuffle, seed=seed)
+        ds = super().load_train(label=label, bands=bands, shuffle=shuffle, seed=seed)
         if augmenter is not None:
             ds = ds.map(
                 lambda x, y: augmenter(x, y), num_parallel_calls=tf.data.AUTOTUNE
             )
         return ds
 
-    def load_val(self, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0):
+    def load_val(
+        self, label: str, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0
+    ):
         """Load a Tensorflow Dataset of validation NAIP images from an HDF5 file.
 
         Parameters
         ----------
+        label : str
+            The name of the label variable.
         bands : tuple[str]
             The bands to parse. This can be used to select specific subsets.
         shuffle : bool
@@ -215,9 +302,11 @@ class NAIPDataset(HDF5Dataset):
         seed : int
             The random seed to use for shuffling.
         """
-        return super().load_val(bands=bands, shuffle=shuffle, seed=seed)
+        return super().load_val(label=label, bands=bands, shuffle=shuffle, seed=seed)
 
-    def load_test(self, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0):
+    def load_test(
+        self, label: str, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0
+    ):
         """Load a Tensorflow Dataset of testing NAIP images from an HDF5 file.
 
         Parameters
@@ -229,4 +318,4 @@ class NAIPDataset(HDF5Dataset):
         seed : int
             The random seed to use for shuffling.
         """
-        return super().load_test(bands=bands, shuffle=shuffle, seed=seed)
+        return super().load_test(label=label, bands=bands, shuffle=shuffle, seed=seed)
