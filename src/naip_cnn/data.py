@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
 
+import ee
 import h5py
 import tensorflow as tf
 import tensorflow_io as tfio
@@ -226,6 +227,14 @@ class TrainingDataset(HDF5Dataset):
         return int(self.footprint[0] // self.lidar_res), int(
             self.footprint[1] // self.lidar_res
         )
+
+    def load_lidar(self) -> ee.Image:
+        """Load the LiDAR labels for the dataset."""
+        return self.acquisition.load_lidar(self.lidar_res)
+
+    def load_naip(self) -> ee.Image:
+        """Load the NAIP mosaic for the dataset."""
+        return self.acquisition.load_naip(self.naip_res)
 
     def _load(
         self, label: str, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0

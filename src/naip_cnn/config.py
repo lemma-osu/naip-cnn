@@ -1,5 +1,9 @@
 from pathlib import Path
 
+# The Earth Engine path where assets are stored
+EE_ASSET_DIR = "projects/ee-maptheforests/assets"
+
+# Local storage paths
 MODEL_DIR = Path("../models")
 TRAIN_DIR = Path("../data/training")
 TFRECORD_DIR = Path("../data/naip")
