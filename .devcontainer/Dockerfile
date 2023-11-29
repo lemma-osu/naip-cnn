@@ -6,4 +6,7 @@ WORKDIR /app
 COPY . /app
 
 RUN pip install -e .
-RUN python ./scripts/setup_env.py
+
+RUN ipython profile create default
+RUN rm $HOME/.ipython/profile_default/ipython_config.py
+RUN cp ./.devcontainer/ipython_config.json $HOME/.ipython/profile_default/ipython_config.json
