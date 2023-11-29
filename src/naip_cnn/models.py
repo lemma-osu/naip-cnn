@@ -8,7 +8,7 @@ from tensorflow.keras import layers
 from tensorflow.keras.optimizers import Adam
 
 from naip_cnn.config import MODEL_DIR
-from naip_cnn.data import TrainingDataset
+from naip_cnn.data import NAIPDatasetWrapper
 
 
 @dataclass
@@ -16,7 +16,7 @@ class ModelRun:
     """A model run with associated model, dataset, and parameters."""
 
     model: tf.keras.Model
-    dataset: TrainingDataset
+    dataset: NAIPDatasetWrapper
     label: str
     bands: tuple[str]
     suffix: str = None
@@ -53,7 +53,7 @@ class ModelRun:
 
         model = tf.keras.models.load_model(MODEL_DIR / f"{basename}.keras")
         bands = tuple(bands)
-        dataset = TrainingDataset.from_filename(dataset_name)
+        dataset = NAIPDatasetWrapper.from_filename(dataset_name)
 
         return ModelRun(model, dataset, label, bands)
 
