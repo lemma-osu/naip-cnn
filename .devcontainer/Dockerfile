@@ -6,3 +6,4 @@ WORKDIR /app
 COPY . /app
 
 RUN pip install -e .
+RUN python ./scripts/setup_env.py
