@@ -1,3 +1,14 @@
+from pathlib import Path
+
+# The Earth Engine path where assets are stored
+EE_ASSET_DIR = "projects/ee-maptheforests/assets"
+
+# Local storage paths
+MODEL_DIR = Path("../models")
+TRAIN_DIR = Path("../data/training")
+TFRECORD_DIR = Path("../data/naip")
+PRED_DIR = Path("../data/pred")
+
 # Albers R6 WKT
 CRS = (
     'PROJCS["NAD83 / Conus Albers",'
@@ -28,3 +39,7 @@ CRS = (
 # The NAIP bands stored during sampling. Subsets of these bands may be used during
 # training, but all bands will be present in the datasets.
 BANDS = ("R", "G", "B", "N")
+
+# Spatial resolution in meters to extract and predict at
+NAIP_RES = 1.0
+LIDAR_RES = 30.0
