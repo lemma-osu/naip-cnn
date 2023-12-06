@@ -149,7 +149,9 @@ class _HDF5DatasetMixin:
         ds = tf.data.Dataset.zip((features, labels))
 
         if shuffle:
-            ds = ds.shuffle(self.n_samples, seed=seed)
+            # Using `reshuffle_each_iteration` before splitting leaks data. See
+            # https://github.com/tensorflow/tensorflow/issues/59279
+            ds = ds.shuffle(self.n_samples, seed=seed, reshuffle_each_iteration=False)
 
         if feature_preprocessor is not None or label_preprocessor is not None:
             feature_preprocessor = feature_preprocessor or (lambda x: x)
