@@ -8,7 +8,10 @@
 		"dockerfile": "./Dockerfile"
 	},
 	"mounts": [
-		"source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached",
+		// Mount the data and model directories into the container
+		"source=${env:HOME}${env:USERPROFILE}/naip-cnn/data,target=/workspaces/naip-cnn/data,type=bind,consistency=cached",
+		"source=${env:HOME}${env:USERPROFILE}/naip-cnn/models,target=/workspaces/naip-cnn/models,type=bind,consistency=cached",
+		// Mount Earth Engine credentials into the container
 		"source=${env:HOME}${env:USERPROFILE}/.config,target=/root/.config,type=bind,consistency=cached"
 	],
 	"containerEnv": {
