@@ -25,8 +25,7 @@
 				"ms-toolsai.jupyter",
 				"github.copilot",
 				"charliermarsh.ruff",
-				"ms-azuretools.vscode-docker",
-				"iterative.dvc"
+				"ms-azuretools.vscode-docker"
 			]
 		}
 	},
