@@ -5,7 +5,6 @@ from pathlib import Path
 
 import tensorflow as tf
 from tensorflow.keras import layers
-from tensorflow.keras.optimizers import Adam
 
 from naip_cnn.config import MODEL_DIR
 from naip_cnn.data import NAIPDatasetWrapper
@@ -28,19 +27,38 @@ class ModelRun:
             parts.append(self.suffix)
 
         self.name = "-".join(parts)
-        self.checkpoint_path = MODEL_DIR / f".checkpoint_{self.name}.h5"
         self.model_path = MODEL_DIR / f"{self.name}.keras"
 
     def __repr__(self) -> str:
         return f"<ModelRun name={self.name}>"
 
-    def load_best_weights(self):
-        """Load the best weights from a checkpoint."""
-        self.model.load_weights(self.checkpoint_path)
+    def load_best_checkpoint(self, delete_checkpoints=True) -> int:
+        """Load the best weights from a checkpoint and return the associated epoch.
 
-    def save_model(self):
+        This assumes that checkpoints are named ".checkpoint_{run.name}_{epoch}.h5" and
+        were generated with `save_best_only=True`, so that the last checkpoint saved is
+        the best. All checkpoints are optionally deleted after the best one is loaded.
+        """
+        checkpoints = list(MODEL_DIR.glob(f".checkpoint_{self.name}_*.h5"))
+        if not checkpoints:
+            raise FileNotFoundError("No checkpoints found.")
+
+        checkpoints.sort()
+        checkpoint_path = checkpoints[-1]
+        epoch = int(checkpoint_path.stem.split("_")[-1])
+
+        self.model.load_weights(checkpoint_path)
+
+        if delete_checkpoints:
+            for file in checkpoints:
+                file.unlink()
+
+        return epoch
+
+    def save_model(self) -> Path:
         """Save the model to disk."""
         self.model.save(self.model_path)
+        return self.model_path
 
     @staticmethod
     def from_filename(filename: str) -> ModelRun:
@@ -63,12 +81,11 @@ def CNN_v1(
     filter_no=32,
     Dense1_no=256,
     Dense2_no=32,
-    learn_rate=0.001,
     shape: tuple[int, int, int] = (30, 30, 4),
 ):
     kernel_size = (kernel_dim, kernel_dim, 4)
 
-    model = tf.keras.models.Sequential(
+    return tf.keras.models.Sequential(
         [
             layers.Conv3D(
                 filters=filter_no,
@@ -88,17 +105,9 @@ def CNN_v1(
         name="CNN_v1",
     )
 
-    optimizer = Adam(learning_rate=learn_rate)
 
-    model.compile(loss="mean_squared_error", optimizer=optimizer, metrics=["mae"])
-
-    return model
-
-
-def CNN_v2(
-    learn_rate=0.001, shape: tuple[int, int, int] = (150, 150, 4), out_shape=(5, 5)
-):
-    model = tf.keras.models.Sequential(
+def CNN_v2(shape: tuple[int, int, int] = (150, 150, 4), out_shape=(5, 5)):
+    return tf.keras.models.Sequential(
         [
             layers.Conv2D(32, (3, 3), activation="relu", input_shape=shape),
             layers.MaxPooling2D((2, 2)),
@@ -110,8 +119,3 @@ def CNN_v2(
         ],
         name="CNN_v2",
     )
-
-    optimizer = Adam(learning_rate=learn_rate)
-    model.compile(loss="mean_squared_error", optimizer=optimizer)
-
-    return model

@@ -28,6 +28,10 @@ dependencies = [
     "bokeh",
     "ipykernel",
     "pre-commit",
+    "aim",
+    "tiler",
+    "rioxarray",
+    "tqdm",
 ]
 
 [tool.hatch.version]
