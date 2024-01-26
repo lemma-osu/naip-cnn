@@ -1,4 +1,4 @@
 *.pyc
 data/**
 models/**
-.aim/
+notebooks/wandb

@@ -28,7 +28,7 @@ dependencies = [
     "bokeh",
     "ipykernel",
     "pre-commit",
-    "aim",
+    "wandb",
     "tiler",
     "rioxarray",
     "tqdm",
