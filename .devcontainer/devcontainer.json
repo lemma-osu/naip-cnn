@@ -8,7 +8,10 @@
 		"dockerfile": "./Dockerfile"
 	},
 	"mounts": [
-		"source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached",
+		// Mount the data and model directories into the container
+		"source=${env:HOME}${env:USERPROFILE}/naip-cnn/data,target=${containerWorkspaceFolder}/data,type=bind,consistency=cached",
+		"source=${env:HOME}${env:USERPROFILE}/naip-cnn/models,target=${containerWorkspaceFolder}/models,type=bind,consistency=cached",
+		// Mount Earth Engine credentials into the container
 		"source=${env:HOME}${env:USERPROFILE}/.config,target=/root/.config,type=bind,consistency=cached"
 	],
 	"containerEnv": {
@@ -19,12 +22,9 @@
 		"vscode": {
 			"extensions": [
 				"ms-python.python",
-				"ms-python.vscode-pylance",
 				"ms-toolsai.jupyter",
 				"github.copilot",
 				"charliermarsh.ruff",
-				"ms-python.black-formatter",
-				"tamasfe.even-better-toml",
 				"ms-azuretools.vscode-docker"
 			]
 		}
