@@ -67,12 +67,16 @@ class Acquisition:
 
 
 # OR NAIP years: 2004 (RGB), 2005 (RGB), 2009, 2011, 2012, 2014, 2016, 2020, 2022
-# HJA2020 = Acquisition(
-#     name="HJA2020",
-#     start_date="2020-01-01",
-#     end_date="2020-12-31",
-#     collection="harney_naip",
-# )
+
+HJA2008_5m = Acquisition(name="HJA2008", start_date="2008-01-01", end_date="2009-12-31")
+HJA2011_5m = Acquisition(name="HJA2011", start_date="2011-01-01", end_date="2011-12-31")
+HJA2016_5m = Acquisition(name="HJA2016", start_date="2016-01-01", end_date="2016-12-31")
+HJA2020_5m = Acquisition(name="HJA2020", start_date="2020-01-01", end_date="2020-12-31")
+
+HJA2020_1m = Acquisition(
+    name="HJA2020_1m", start_date="2020-01-01", end_date="2020-12-31"
+)
+
 MAL2007 = Acquisition(
     name="MAL2007",
     start_date="2007-01-01",

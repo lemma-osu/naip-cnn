@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers
+from tensorflow.keras.optimizers import Adam
 
 from naip_cnn.config import MODEL_DIR
 from naip_cnn.data import NAIPDatasetWrapper
@@ -118,4 +120,119 @@ def CNN_v2(shape: tuple[int, int, int] = (150, 150, 4), out_shape=(5, 5)):
             layers.Reshape(out_shape),
         ],
         name="CNN_v2",
+    )
+
+
+def _encoder_block(x, n_filters, dropout=0.3, kernel_regularizer=None):
+    x = layers.Conv2D(
+        n_filters,
+        3,
+        padding="same",
+        activation="relu",
+        kernel_regularizer=kernel_regularizer,
+    )(x)
+    x = layers.Conv2D(
+        n_filters,
+        3,
+        padding="same",
+        activation="relu",
+        kernel_regularizer=kernel_regularizer,
+    )(x)
+    p = layers.MaxPool2D(2)(x)
+    p = layers.Dropout(dropout)(p)
+    return x, p
+
+
+def _decoder_block(x, conv_features, n_filters, kernel_regularizer=None):
+    x = layers.Conv2DTranspose(n_filters, 3, 2, padding="same")(x)
+    x = layers.concatenate([x, conv_features])
+    x = layers.Conv2D(
+        n_filters,
+        3,
+        padding="same",
+        activation="relu",
+        kernel_regularizer=kernel_regularizer,
+    )(x)
+    return layers.Conv2D(
+        n_filters,
+        3,
+        padding="same",
+        activation="relu",
+        kernel_regularizer=kernel_regularizer,
+    )(x)
+
+
+def UNet(
+    in_shape,
+    out_shape,
+    encoder_blocks=4,
+    max_filters=512,
+    dropout=0.3,
+    kernel_regularizer=None,
+    name="UNet",
+):
+    """A modified UNet with a configurable number of encoder blocks and a calculated
+    number of decoder blocks."""
+    if in_shape[0] < out_shape[0]:
+        raise ValueError("The output shape must be <= the input shape.")
+    # Calculate the image size after encoding
+    encoded_size = in_shape[0] / 2**encoder_blocks
+    if not encoded_size.is_integer():
+        raise ValueError("The input shape must be divisible by 2 ** encoder_blocks.")
+
+    # Calculate the number of decoder blocks to achieve the output shape
+    decoder_blocks = np.log2(out_shape[0] / encoded_size)
+    if not decoder_blocks.is_integer():
+        raise ValueError(
+            f"The output shape must be divisible by the encoded size ({encoded_size})."
+        )
+
+    # Calcuate the exponential of the first filter size
+    start_filter_exp = np.log2(max_filters) - encoder_blocks
+
+    inputs = x = tf.keras.layers.Input(shape=in_shape)
+
+    # Build the encoder blocks
+    encoders = []
+    for i in range(encoder_blocks):
+        filters = 2 ** (start_filter_exp + i)
+
+        encoder, pooling = _encoder_block(
+            x, filters, dropout=dropout, kernel_regularizer=kernel_regularizer
+        )
+        encoders.append(encoder)
+
+        x = pooling
+
+    # Bottleneck
+    bottleneck_filters = 2 ** (start_filter_exp + encoder_blocks)
+    x = layers.Conv2D(bottleneck_filters, 3, padding="same", activation="relu")(x)
+    x = layers.Conv2D(bottleneck_filters, 3, padding="same", activation="relu")(x)
+
+    # Build the decoder blocks
+    for i in range(int(decoder_blocks)):
+        filters = 2 ** (start_filter_exp + encoder_blocks - i)
+        x = _decoder_block(
+            x, encoders[-(i + 1)], filters, kernel_regularizer=kernel_regularizer
+        )
+
+    outputs = layers.Conv2D(
+        1, 1, activation="linear", kernel_regularizer=kernel_regularizer
+    )(x)
+
+    model = tf.keras.Model(inputs, outputs, name=name)
+    optimizer = Adam(learning_rate=0.001)
+    model.compile(loss="mean_squared_error", optimizer=optimizer)
+
+    return model
+
+
+def UNet_v1():
+    return UNet(
+        in_shape=(256, 256, 4),
+        out_shape=(128, 128),
+        encoder_blocks=4,
+        max_filters=256,
+        dropout=0.3,
+        kernel_regularizer=tf.keras.regularizers.l2(0.01),
     )
