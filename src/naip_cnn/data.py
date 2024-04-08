@@ -7,6 +7,7 @@ from typing import Callable
 
 import ee
 import h5py
+import spyndex
 import tensorflow as tf
 import tensorflow_io as tfio
 
@@ -168,7 +169,7 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
     """A dataset of NAIP images and forest attribute labels in an HDF5 file."""
 
     def _load(
-        self, label: str, bands: tuple[str] = BANDS, shuffle: bool = True, seed: int = 0
+        self, label: str, bands: tuple[str] = BANDS, veg_indices: tuple[str]=tuple(), shuffle: bool = True, seed: int = 0
     ) -> tf.data.Dataset:
         """Load a Tensorflow Dataset of NAIP images from an HDF5 file.
 
@@ -178,13 +179,44 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
             The name of the label variable.
         bands : tuple[str]
             The bands to parse. This can be used to select specific subsets.
+        veg_indices : list[str]
+            Vegetation indices to calculate and append to the NAIP images. Indices must 
+            be supported by spyndex.
         """
-        band_idxs = [BANDS.index(band) for band in bands]
 
         def preprocess_naip(image: tf.Tensor) -> tf.Tensor:
-            """Cast byte image to float and select bands."""
-            image = tf.gather(image, band_idxs, axis=-1)
-            return tf.cast(image, tf.float32) / 255
+            """Cast byte image to float and select/calculate bands."""
+            image = tf.cast(image, tf.float32) / 255.0
+
+            EXTRA_VI_PARAMS = {
+                "EVI": {"L": 2.5, "C1": 6, "C2": 7.5, "g": 2.5},
+                "SAVI": {"L": 0.5},
+                "ARVI": {"gamma": 1.0},
+            }
+
+            for index in veg_indices:
+                index_params = {
+                    "R": image[..., 0],
+                    "G": image[..., 1],
+                    "B": image[..., 2],
+                    "N": image[..., 3],
+                }
+
+                index_params.update(EXTRA_VI_PARAMS.get(index, {}))                
+                vi = spyndex.computeIndex(index, params=index_params)
+                # Band ratios can produce NaNs
+                vi = tf.where(tf.math.is_nan(vi), tf.zeros_like(vi), vi)
+
+                vi = tf.expand_dims(vi, axis=-1)
+
+                image = tf.concat([image, vi], axis=-1)
+
+            # Select out any unwanted bands
+            band_idxs = [BANDS.index(b) for b in bands]
+            vi_idxs = list(range(len(BANDS), len(BANDS) + len(veg_indices)))
+            keep_bands = band_idxs + vi_idxs
+
+            return tf.gather(image, keep_bands, axis=-1)
 
         return super()._load(
             label=label,
@@ -197,6 +229,7 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
         self,
         label: str,
         bands: tuple[str] = BANDS,
+        veg_indices: tuple[str]=tuple(),
         augmenter: Callable | None = _flip_contrast_brightness_augment,
         shuffle: bool = True,
         seed: int = 0,
@@ -224,6 +257,7 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
         return super().load_train(
             label=label,
             bands=bands,
+            veg_indices=veg_indices,
             augmenter=augmenter,
             shuffle=shuffle,
             seed=seed,
@@ -234,6 +268,7 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
         self,
         label: str,
         bands: tuple[str] = BANDS,
+        veg_indices: tuple[str]=tuple(),
         shuffle: bool = True,
         seed: int = 0,
         **kwargs,
@@ -254,13 +289,19 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
             Additional arguments passed to _load.
         """
         return super().load_val(
-            label=label, bands=bands, shuffle=shuffle, seed=seed, **kwargs
+            label=label, 
+            bands=bands, 
+            veg_indices=veg_indices,
+            shuffle=shuffle, 
+            seed=seed, 
+            **kwargs
         )
 
     def load_test(
         self,
         label: str,
         bands: tuple[str] = BANDS,
+        veg_indices: tuple[str]=tuple(),
         shuffle: bool = True,
         seed: int = 0,
         **kwargs,
@@ -281,7 +322,12 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
             Additional arguments passed to _load.
         """
         return super().load_test(
-            label=label, bands=bands, shuffle=shuffle, seed=seed, **kwargs
+            label=label, 
+            bands=bands, 
+            veg_indices=veg_indices,
+            shuffle=shuffle, 
+            seed=seed, 
+            **kwargs
         )
 
 
