@@ -13,7 +13,7 @@ import tensorflow_io as tfio
 
 from naip_cnn.acquisitions import Acquisition
 from naip_cnn.config import BANDS, TRAIN_DIR
-from naip_cnn.utils import float_to_str
+from naip_cnn.utils import float_to_str, str_to_float
 
 
 @tf.autograph.experimental.do_not_convert
@@ -152,7 +152,13 @@ class _HDF5DatasetMixin:
         if shuffle:
             # Using `reshuffle_each_iteration` before splitting leaks data. See
             # https://github.com/tensorflow/tensorflow/issues/59279
-            ds = ds.shuffle(self.n_samples, seed=seed, reshuffle_each_iteration=False)
+            ds = ds.shuffle(
+                # TODO: Decide how to handle buffer size for large datasets. Maybe I
+                # should pre-split data to speed up training?
+                buffer_size=10_000,
+                seed=seed,
+                reshuffle_each_iteration=False,
+            )
 
         if feature_preprocessor is not None or label_preprocessor is not None:
             feature_preprocessor = feature_preprocessor or (lambda x: x)
@@ -169,7 +175,12 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
     """A dataset of NAIP images and forest attribute labels in an HDF5 file."""
 
     def _load(
-        self, label: str, bands: tuple[str] = BANDS, veg_indices: tuple[str]=tuple(), shuffle: bool = True, seed: int = 0
+        self,
+        label: str,
+        bands: tuple[str] = BANDS,
+        veg_indices: tuple[str] = tuple(),
+        shuffle: bool = True,
+        seed: int = 0,
     ) -> tf.data.Dataset:
         """Load a Tensorflow Dataset of NAIP images from an HDF5 file.
 
@@ -180,7 +191,7 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
         bands : tuple[str]
             The bands to parse. This can be used to select specific subsets.
         veg_indices : list[str]
-            Vegetation indices to calculate and append to the NAIP images. Indices must 
+            Vegetation indices to calculate and append to the NAIP images. Indices must
             be supported by spyndex.
         """
 
@@ -202,7 +213,7 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
                     "N": image[..., 3],
                 }
 
-                index_params.update(EXTRA_VI_PARAMS.get(index, {}))                
+                index_params.update(EXTRA_VI_PARAMS.get(index, {}))
                 vi = spyndex.computeIndex(index, params=index_params)
                 # Band ratios can produce NaNs
                 vi = tf.where(tf.math.is_nan(vi), tf.zeros_like(vi), vi)
@@ -229,7 +240,7 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
         self,
         label: str,
         bands: tuple[str] = BANDS,
-        veg_indices: tuple[str]=tuple(),
+        veg_indices: tuple[str] = tuple(),
         augmenter: Callable | None = _flip_contrast_brightness_augment,
         shuffle: bool = True,
         seed: int = 0,
@@ -268,7 +279,7 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
         self,
         label: str,
         bands: tuple[str] = BANDS,
-        veg_indices: tuple[str]=tuple(),
+        veg_indices: tuple[str] = tuple(),
         shuffle: bool = True,
         seed: int = 0,
         **kwargs,
@@ -289,19 +300,19 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
             Additional arguments passed to _load.
         """
         return super().load_val(
-            label=label, 
-            bands=bands, 
+            label=label,
+            bands=bands,
             veg_indices=veg_indices,
-            shuffle=shuffle, 
-            seed=seed, 
-            **kwargs
+            shuffle=shuffle,
+            seed=seed,
+            **kwargs,
         )
 
     def load_test(
         self,
         label: str,
         bands: tuple[str] = BANDS,
-        veg_indices: tuple[str]=tuple(),
+        veg_indices: tuple[str] = tuple(),
         shuffle: bool = True,
         seed: int = 0,
         **kwargs,
@@ -322,12 +333,12 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
             Additional arguments passed to _load.
         """
         return super().load_test(
-            label=label, 
-            bands=bands, 
+            label=label,
+            bands=bands,
             veg_indices=veg_indices,
-            shuffle=shuffle, 
-            seed=seed, 
-            **kwargs
+            shuffle=shuffle,
+            seed=seed,
+            **kwargs,
         )
 
 
@@ -409,10 +420,10 @@ class NAIPDatasetWrapper:
 
         return NAIPDatasetWrapper(
             acquisition=Acquisition.from_name(name),
-            naip_res=float(naip_res),
-            lidar_res=float(lidar_res),
+            naip_res=str_to_float(naip_res),
+            lidar_res=str_to_float(lidar_res),
             footprint=tuple(map(int, footprint.split("x"))),
-            spacing=float(spacing),
+            spacing=str_to_float(spacing),
             **kwargs,
         )
 
