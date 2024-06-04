@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
 from typing import Callable
@@ -59,67 +58,12 @@ def _flip_contrast_brightness_augment(
     return img, label
 
 
-class _TrainTestValidationDataset(ABC):
-    """
-    A wrapper around a Tensorflow Dataset that can be split into train, test, and
-    validation sets.
-    """
-
-    def __init__(self, train_split=0.8, val_split=0.1, test_split=0.1):
-        if train_split + val_split + test_split != 1.0:
-            raise ValueError("train_split + val_split + test_split must equal 1.0")
-
-        self.train_split = train_split
-        self.val_split = val_split
-        self.test_split = test_split
-
-    @abstractmethod
-    def __len__(self) -> int:
-        """Return the total number of samples in the dataset."""
-        ...
-
-    @abstractmethod
-    def _load(self, **kwargs) -> tf.data.Dataset:
-        """Load the full dataset."""
-        ...
-
-    @property
-    def n_train(self) -> int:
-        return int(len(self) * self.train_split)
-
-    @property
-    def n_val(self) -> int:
-        return int(len(self) * self.val_split)
-
-    @property
-    def n_test(self) -> int:
-        return len(self) - self.n_train - self.n_val
-
-    def load_train(
-        self, augmenter: Callable | None = None, **kwargs
-    ) -> tf.data.Dataset:
-        ds = self._load(**kwargs).take(self.n_train)
-        if augmenter is not None:
-            ds = ds.map(
-                lambda x, y: augmenter(x, y), num_parallel_calls=tf.data.AUTOTUNE
-            )
-
-        return ds
-
-    def load_val(self, **kwargs) -> tf.data.Dataset:
-        return self._load(**kwargs).skip(self.n_train).take(self.n_val)
-
-    def load_test(self, **kwargs) -> tf.data.Dataset:
-        return self._load(**kwargs).skip(self.n_train + self.n_val).take(self.n_test)
-
-
 class _HDF5DatasetMixin:
     """A dataset of features and labels stored in an HDF5 file."""
 
-    def __init__(self, path, feature_name: str, **kwargs):
+    def __init__(self, path, feature_name: str):
         self.path = path
         self.feature_name = feature_name
-        super().__init__(**kwargs)
 
     @cached_property
     def n_samples(self) -> int:
@@ -135,10 +79,9 @@ class _HDF5DatasetMixin:
     def _load(
         self,
         label: str,
-        shuffle: bool = True,
-        seed: int = 0,
         feature_preprocessor: Callable | None = None,
         label_preprocessor: Callable | None = None,
+        augmenter: Callable | None = None,
     ) -> tf.data.Dataset:
         """Load a zipped dataset of features and labels from an HDF5 file."""
         if not self.path.exists():
@@ -149,17 +92,6 @@ class _HDF5DatasetMixin:
         labels = tfio.IODataset.from_hdf5(self.path.as_posix(), dataset=f"/{label}")
         ds = tf.data.Dataset.zip((features, labels))
 
-        if shuffle:
-            # Using `reshuffle_each_iteration` before splitting leaks data. See
-            # https://github.com/tensorflow/tensorflow/issues/59279
-            ds = ds.shuffle(
-                # TODO: Decide how to handle buffer size for large datasets. Maybe I
-                # should pre-split data to speed up training?
-                buffer_size=10_000,
-                seed=seed,
-                reshuffle_each_iteration=False,
-            )
-
         if feature_preprocessor is not None or label_preprocessor is not None:
             feature_preprocessor = feature_preprocessor or (lambda x: x)
             label_preprocessor = label_preprocessor or (lambda x: x)
@@ -168,19 +100,26 @@ class _HDF5DatasetMixin:
                 num_parallel_calls=tf.data.AUTOTUNE,
             )
 
+        if augmenter is not None:
+            ds = ds.map(
+                lambda x, y: augmenter(x, y), num_parallel_calls=tf.data.AUTOTUNE
+            )
+
         return ds.apply(tf.data.experimental.assert_cardinality(self.n_samples))
 
 
-class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
+class _NAIPHDF5Dataset(_HDF5DatasetMixin):
     """A dataset of NAIP images and forest attribute labels in an HDF5 file."""
+
+    def __init__(self, path):
+        return super().__init__(path=path, feature_name="image")
 
     def _load(
         self,
         label: str,
         bands: tuple[str] = BANDS,
         veg_indices: tuple[str] = tuple(),
-        shuffle: bool = True,
-        seed: int = 0,
+        augmenter: Callable | None = None,
     ) -> tf.data.Dataset:
         """Load a Tensorflow Dataset of NAIP images from an HDF5 file.
 
@@ -193,6 +132,9 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
         veg_indices : list[str]
             Vegetation indices to calculate and append to the NAIP images. Indices must
             be supported by spyndex.
+        augmenter : function
+            The function to use for data augmentation. Must take and return a tuple of
+            (image, label) tensors.
         """
 
         def preprocess_naip(image: tf.Tensor) -> tf.Tensor:
@@ -231,114 +173,8 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin, _TrainTestValidationDataset):
 
         return super()._load(
             label=label,
-            shuffle=shuffle,
-            seed=seed,
             feature_preprocessor=preprocess_naip,
-        )
-
-    def load_train(
-        self,
-        label: str,
-        bands: tuple[str] = BANDS,
-        veg_indices: tuple[str] = tuple(),
-        augmenter: Callable | None = _flip_contrast_brightness_augment,
-        shuffle: bool = True,
-        seed: int = 0,
-        **kwargs,
-    ):
-        """Load a training Tensorflow Dataset of NAIP images from an HDF5 file,
-        optionally applying data augmentation.
-
-        Parameters
-        ----------
-        label : str
-            The name of the label variable.
-        bands : tuple[str]
-            The bands to load. This can be used to select specific subsets.
-        augmenter : function
-            The function to use for data augmentation. Must take and return a tuple of
-            (image, label) tensors.
-        shuffle : bool
-            If True, the dataset will be shuffled prior to splitting.
-        seed : int
-            The random seed to use for shuffling.
-        **kwargs
-            Additional arguments passed to _load.
-        """
-        return super().load_train(
-            label=label,
-            bands=bands,
-            veg_indices=veg_indices,
             augmenter=augmenter,
-            shuffle=shuffle,
-            seed=seed,
-            **kwargs,
-        )
-
-    def load_val(
-        self,
-        label: str,
-        bands: tuple[str] = BANDS,
-        veg_indices: tuple[str] = tuple(),
-        shuffle: bool = True,
-        seed: int = 0,
-        **kwargs,
-    ):
-        """Load a validtion Tensorflow Dataset from an HDF5 file.
-
-        Parameters
-        ----------
-        label : str
-            The name of the label variable.
-        bands : tuple[str]
-            The bands to load. This can be used to select specific subsets.
-        shuffle : bool
-            If True, the dataset will be shuffled prior to splitting.
-        seed : int
-            The random seed to use for shuffling.
-        **kwargs
-            Additional arguments passed to _load.
-        """
-        return super().load_val(
-            label=label,
-            bands=bands,
-            veg_indices=veg_indices,
-            shuffle=shuffle,
-            seed=seed,
-            **kwargs,
-        )
-
-    def load_test(
-        self,
-        label: str,
-        bands: tuple[str] = BANDS,
-        veg_indices: tuple[str] = tuple(),
-        shuffle: bool = True,
-        seed: int = 0,
-        **kwargs,
-    ):
-        """Load a testing Tensorflow Dataset from an HDF5 file.
-
-        Parameters
-        ----------
-        label : str
-            The name of the label variable.
-        bands : tuple[str]
-            The bands to load. This can be used to select specific subsets.
-        shuffle : bool
-            If True, the dataset will be shuffled prior to splitting.
-        seed : int
-            The random seed to use for shuffling.
-        **kwargs
-            Additional arguments passed to _load.
-        """
-        return super().load_test(
-            label=label,
-            bands=bands,
-            veg_indices=veg_indices,
-            shuffle=shuffle,
-            seed=seed,
-            **kwargs,
         )
 
 
@@ -357,7 +193,6 @@ class NAIPDatasetWrapper:
         lidar_res=30.0,
         footprint: tuple[int, int] = (150, 150),
         spacing: float = None,
-        **kwargs,
     ) -> None:
         """
         Parameters
@@ -373,8 +208,6 @@ class NAIPDatasetWrapper:
         spacing : float
             The spacing between sampled footprints in meters. If None, defaults to
             the footprint width.
-        **kwargs
-            Additional arguments passed to _HDF5Dataset, e.g. train_split, val_split.
         """
         self.acquisition = acquisition
         self.naip_res = naip_res
@@ -382,7 +215,6 @@ class NAIPDatasetWrapper:
         self.footprint = footprint
         self.spacing = spacing if spacing is not None else footprint[0]
         self.name = self._get_name()
-        self.hdf_path = TRAIN_DIR / (self.name + ".h5")
         self.csv_path = TRAIN_DIR / (self.name + ".csv")
 
         # The shape of the image and labels in pixels
@@ -390,9 +222,36 @@ class NAIPDatasetWrapper:
         self.naip_shape = int(h // naip_res), int(w // naip_res)
         self.lidar_shape = int(h // lidar_res), int(w // lidar_res)
 
-        self.dataset = _NAIPHDF5Dataset(
-            path=self.hdf_path, feature_name="image", **kwargs
+        self._train = _NAIPHDF5Dataset(path=TRAIN_DIR / (self.name + "_train.h5"))
+        self._val = _NAIPHDF5Dataset(path=TRAIN_DIR / (self.name + "_val.h5"))
+        self._test = _NAIPHDF5Dataset(path=TRAIN_DIR / (self.name + "_test.h5"))
+
+    def load_train(
+        self,
+        label: str,
+        bands: tuple[str] = BANDS,
+        veg_indices: tuple[str] = tuple(),
+        augmenter: Callable | None = None,
+    ):
+        return self._train._load(
+            label=label, bands=bands, veg_indices=veg_indices, augmenter=augmenter
         )
+
+    def load_val(
+        self,
+        label: str,
+        bands: tuple[str] = BANDS,
+        veg_indices: tuple[str] = tuple(),
+    ):
+        return self._val._load(label=label, bands=bands, veg_indices=veg_indices)
+
+    def load_test(
+        self,
+        label: str,
+        bands: tuple[str] = BANDS,
+        veg_indices: tuple[str] = tuple(),
+    ):
+        return self._test._load(label=label, bands=bands, veg_indices=veg_indices)
 
     def __repr__(self) -> str:
         return f"<NAIPDatasetWrapper name={self.name}>"

@@ -52,7 +52,7 @@ def build_wandb_config(
             "path": model_run.model_path.as_posix(),
         },
         "data": {
-            "path": dataset.hdf_path.as_posix(),
+            "path": dataset._train.path.as_posix(),
             "date": {
                 "start": dataset.acquisition.start_date,
                 "end": dataset.acquisition.end_date,
