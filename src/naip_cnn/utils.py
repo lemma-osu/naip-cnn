@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 import h5py
 import numpy as np
+import wandb
+
+from naip_cnn.config import WANDB_PROJECT
 
 if TYPE_CHECKING:
     from naip_cnn.augment import Augment
@@ -65,7 +69,50 @@ def count_duplicate_images(train_path, val_path, key: str = "image") -> int:
     return np.intersect1d(val_image.view(val_dtype), train_image.view(train_dtype))
 
 
-def build_wandb_config(
+def initialize_wandb_run(
+    *,
+    dataset: NAIPDatasetWrapper,
+    model_run: ModelRun,
+    bands: tuple[str],
+    label: str,
+    batch_size: int,
+    learn_rate: float,
+    epochs: int,
+    n_train: int,
+    n_val: int,
+    augmenter: Augment | None = None,
+    allow_duplicate: bool = False,
+) -> wandb.apis.public.runs.Run:
+    """Initialize a W&B run for tracking an experiment."""
+    group = f"{dataset.lidar_res:n}m_{label}"
+
+    config = _build_wandb_config(
+        dataset=dataset,
+        model_run=model_run,
+        bands=bands,
+        label=label,
+        batch_size=batch_size,
+        learn_rate=learn_rate,
+        epochs=epochs,
+        n_train=n_train,
+        n_val=n_val,
+        augmenter=augmenter,
+    )
+
+    if not allow_duplicate:
+        prev_runs = wandb.Api().runs(WANDB_PROJECT)
+
+        for prev_run in prev_runs:
+            if _configs_are_equal(prev_run.config, config):
+                raise ValueError(
+                    f"Configuration matches an existing run ({prev_run.url}). "
+                    "To allow duplicate configurations, set `allow_duplicate=True`."
+                )
+
+    return wandb.init(project=WANDB_PROJECT, config=config, group=group, save_code=True)
+
+
+def _build_wandb_config(
     *,
     dataset: NAIPDatasetWrapper,
     model_run: ModelRun,
@@ -120,3 +167,31 @@ def build_wandb_config(
             },
         },
     }
+
+
+def _configs_are_equal(config1, config2):
+    """
+    Compare two configuration dictionaries for equality.
+
+    Note that we implement this from scratch to rather than a simple equality check
+    because values may be modified by W&B, e.g. converting tuples to lists and floats
+    to ints.
+    """
+    # Normalize to JSON to, e.g. convert tuples to lists
+    config1 = json.loads(json.dumps(config1))
+    config2 = json.loads(json.dumps(config2))
+
+    for key, value in config1.items():
+        # Keys are mismatched
+        if key not in config2:
+            return False
+
+        # Compare nested dictionaries
+        if isinstance(value, dict) and not _configs_are_equal(value, config2[key]):
+            return False
+
+        # Values are mismatched
+        if value != config2[key]:
+            return False
+
+    return True

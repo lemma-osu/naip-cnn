@@ -43,3 +43,7 @@ BANDS = ("R", "G", "B", "N")
 # Spatial resolution in meters to extract and predict at
 NAIP_RES = 1.0
 LIDAR_RES = 30.0
+
+# The name of the Weights and Biases project where results are logged
+WANDB_PROJECT = "naip-cnn"
+WANDB_PATH = f"aazuspan-team/{WANDB_PROJECT}"
