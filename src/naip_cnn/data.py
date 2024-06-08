@@ -11,51 +11,9 @@ import tensorflow as tf
 import tensorflow_io as tfio
 
 from naip_cnn.acquisitions import Acquisition
+from naip_cnn.augment import Augment
 from naip_cnn.config import BANDS, TRAIN_DIR
 from naip_cnn.utils import float_to_str, str_to_float
-
-
-@tf.autograph.experimental.do_not_convert
-def _flip_contrast_brightness_augment(
-    img: tf.Tensor, label: tf.Tensor
-) -> tuple[tf.Tensor, tf.Tensor]:
-    """Augment an image and label Tensor.
-
-    The image and label are randomly flipped, and the image is randomly adjusted in
-    contrast and brightness. The image MUST be in the range [0, 1] prior to augmenting.
-
-    Parameters
-    ----------
-    img : tf.Tensor
-        The image Tensor to augment.
-    label : tf.Tensor
-        The label Tensor to augment.
-
-    Returns
-    -------
-    tf.Tensor
-        The augmented image Tensor.
-    """
-    flip_lr = tf.random.uniform([], 0, 1.0, dtype=tf.float32)
-    flip_ud = tf.random.uniform([], 0, 1.0, dtype=tf.float32)
-
-    # We need a channel dimension to use the tf.image functions
-    label = tf.expand_dims(label, axis=-1)
-
-    img = tf.cond(flip_lr > 0.5, lambda: tf.image.flip_left_right(img), lambda: img)
-    img = tf.cond(flip_ud > 0.5, lambda: tf.image.flip_up_down(img), lambda: img)
-    label = tf.cond(
-        flip_lr > 0.5, lambda: tf.image.flip_left_right(label), lambda: label
-    )
-    label = tf.cond(flip_ud > 0.5, lambda: tf.image.flip_up_down(label), lambda: label)
-
-    label = tf.squeeze(label, axis=-1)
-
-    contrast_factor = tf.random.uniform([], 0.5, 1.5)
-    brightness_factor = tf.random.uniform([], -0.2, 0.2)
-    img = tf.clip_by_value(img * contrast_factor + brightness_factor, 0.0, 1.0)
-
-    return img, label
 
 
 class _HDF5DatasetMixin:
@@ -81,7 +39,7 @@ class _HDF5DatasetMixin:
         label: str,
         feature_preprocessor: Callable | None = None,
         label_preprocessor: Callable | None = None,
-        augmenter: Callable | None = None,
+        augmenter: Augment | None = None,
     ) -> tf.data.Dataset:
         """Load a zipped dataset of features and labels from an HDF5 file."""
         if not self.path.exists():
@@ -119,7 +77,7 @@ class _NAIPHDF5Dataset(_HDF5DatasetMixin):
         label: str,
         bands: tuple[str] = BANDS,
         veg_indices: tuple[str] = tuple(),
-        augmenter: Callable | None = None,
+        augmenter: Augment | None = None,
     ) -> tf.data.Dataset:
         """Load a Tensorflow Dataset of NAIP images from an HDF5 file.
 
@@ -231,7 +189,7 @@ class NAIPDatasetWrapper:
         label: str,
         bands: tuple[str] = BANDS,
         veg_indices: tuple[str] = tuple(),
-        augmenter: Callable | None = None,
+        augmenter: Augment | None = None,
     ):
         return self._train._load(
             label=label, bands=bands, veg_indices=veg_indices, augmenter=augmenter

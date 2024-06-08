@@ -6,6 +6,7 @@ import h5py
 import numpy as np
 
 if TYPE_CHECKING:
+    from naip_cnn.augment import Augment
     from naip_cnn.data import NAIPDatasetWrapper
     from naip_cnn.models import ModelRun
 
@@ -75,6 +76,7 @@ def build_wandb_config(
     epochs: int,
     n_train: int,
     n_val: int,
+    augmenter: Augment | None = None,
 ) -> dict:
     """Build a configuration dictionary for tracking an experiment with W&B."""
     return {
@@ -88,10 +90,14 @@ def build_wandb_config(
             "path": model_run.model_path.as_posix(),
         },
         "data": {
-            "path": dataset._train.path.as_posix(),
-            "n_samples": {
-                "train": n_train,
-                "val": n_val,
+            "train": {
+                "path": dataset._train.path.as_posix(),
+                "n_samples": n_train,
+                "augmentation": augmenter.to_json() if augmenter is not None else None,
+            },
+            "val": {
+                "path": dataset._val.path.as_posix(),
+                "n_samples": n_val,
             },
             "date": {
                 "start": dataset.acquisition.start_date,
@@ -100,6 +106,7 @@ def build_wandb_config(
             "footprint": {
                 "shape": dataset.footprint,
                 "spacing": dataset.spacing,
+                "units": "meters",
             },
             "imagery": {
                 "bands": "-".join(bands),
