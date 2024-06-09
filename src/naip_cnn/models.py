@@ -162,6 +162,46 @@ def _decoder_block(x, conv_features, n_filters, kernel_regularizer=None):
     )(x)
 
 
+def CNN(
+    shape: tuple[int, int, int] = (150, 150, 4),
+    out_shape=(5, 5),
+    encoder_blocks=4,
+    first_n_filters=16,
+    dropout=0.3,
+    kernel_regularizer=None,
+    name="CNN",
+):
+    inputs = x = tf.keras.layers.Input(shape=shape)
+
+    # Build the encoder blocks
+    for i in range(encoder_blocks):
+        filters = first_n_filters * 2**i
+
+        _, x = _encoder_block(
+            x, filters, dropout=dropout, kernel_regularizer=kernel_regularizer
+        )
+
+    # Build the flatten and dense output layers
+    x = layers.Flatten()(x)
+    x = layers.Dense(units=out_shape[0] * out_shape[1], activation="linear")(x)
+
+    outputs = layers.Reshape(out_shape)(x)
+
+    return tf.keras.Model(inputs, outputs, name=name)
+
+
+def CNN_v3(shape: tuple[int, int, int] = (150, 150, 4), out_shape=(5, 5)):
+    return CNN(
+        shape=shape,
+        out_shape=out_shape,
+        encoder_blocks=4,
+        first_n_filters=16,
+        dropout=0.3,
+        kernel_regularizer=tf.keras.regularizers.l2(0.01),
+        name="CNN_v3",
+    )
+
+
 def UNet(
     in_shape,
     out_shape,
