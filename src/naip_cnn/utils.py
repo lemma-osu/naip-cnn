@@ -135,6 +135,7 @@ def _build_wandb_config(
         "model": {
             "architecture": model_run.model.name,
             "path": model_run.model_path.as_posix(),
+            "params": model_run.model_params,
         },
         "data": {
             "train": {
@@ -180,6 +181,10 @@ def _configs_are_equal(config1, config2):
     # Normalize to JSON to, e.g. convert tuples to lists
     config1 = json.loads(json.dumps(config1))
     config2 = json.loads(json.dumps(config2))
+
+    # Check if the comparison is None, which may occur for nested checks
+    if config2 is None:
+        return False
 
     for key, value in config1.items():
         # Keys are mismatched
