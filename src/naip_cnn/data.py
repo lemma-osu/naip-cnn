@@ -1,18 +1,21 @@
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import Callable
 
 import ee
 import h5py
+import numpy as np
 import spyndex
 import tensorflow as tf
 import tensorflow_io as tfio
 
 from naip_cnn.acquisitions import Acquisition
 from naip_cnn.augment import Augment
-from naip_cnn.config import BANDS, TRAIN_DIR
+from naip_cnn.config import BANDS, CRS, NAIP_RES, TFRECORD_DIR, TRAIN_DIR
 from naip_cnn.utils.parsing import float_to_str, str_to_float
 
 
@@ -251,3 +254,118 @@ class NAIPDatasetWrapper:
     def load_naip(self) -> ee.Image:
         """Load the NAIP mosaic for the dataset."""
         return self.acquisition.load_naip(self.naip_res)
+
+
+@dataclass
+class NAIPTFRecord:
+    """A TFRecord dataset of NAIP tiles for inference.
+
+    This class is used both for exporting NAIP imagery to TFRecords and for
+    loading, parsing, and predicting on those TFRecords.
+    """
+
+    id: str
+    footprint: tuple[float, float]
+    year: int
+    bounds: ee.Geometry = None
+    res: float = NAIP_RES
+
+    def __post_init__(self) -> None:
+        footprint_str = f"{self.footprint[0]}x{self.footprint[1]}"
+        res_str = float_to_str(self.res)
+
+        self.name = "-".join(
+            [
+                self.id,
+                str(self.year),
+                res_str,
+                footprint_str,
+            ]
+        )
+
+        self.mixer_path = TFRECORD_DIR / f"{self.name}-mixer.json"
+
+    @property
+    def naip_shape(self):
+        return int(self.footprint[0] // self.res), int(self.footprint[1] // self.res)
+
+    def load_naip(self) -> ee.Image:
+        if self.bounds is None:
+            raise ValueError("Bounds must be set before loading NAIP imagery.")
+
+        return (
+            ee.ImageCollection("USDA/NAIP/DOQQ")
+            .filterBounds(self.bounds)
+            .filterDate(str(self.year), str(self.year + 1))
+            .mosaic()
+            .select(BANDS)
+            .reproject(CRS)
+            .uint8()
+        )
+
+    def export_to_drive(self, **kwargs):
+        """Export the NAIP image to Google Drive."""
+        task = ee.batch.Export.image.toDrive(
+            image=self.load_naip(),
+            description=self.name,
+            region=self.bounds,
+            scale=self.res,
+            fileFormat="TFRecord",
+            maxPixels=1e13,
+            formatOptions={
+                "patchDimensions": self.naip_shape,
+                "compressed": True,
+                "maxFileSize": 1e9,
+            },
+            **kwargs,
+        )
+        task.start()
+        return task
+
+    def __repr__(self) -> str:
+        return f"<NAIPTFRecord name={self.name}>"
+
+    @cached_property
+    def profile(self) -> dict:
+        with open(self.mixer_path) as f:
+            mixer = json.load(f)
+
+        return {
+            "width": mixer["patchesPerRow"],
+            "height": mixer["totalPatches"] // mixer["patchesPerRow"],
+            "crs": mixer["projection"]["crs"],
+            "transform": mixer["projection"]["affine"]["doubleMatrix"],
+        }
+
+    def n_batches(self, batch_size: int):
+        return np.ceil((self.profile["width"] * self.profile["height"]) / batch_size)
+
+    def load_dataset(self, bands: tuple[str] = BANDS) -> tf.data.Dataset:
+        """Load and parse the TFRecord dataset."""
+        tfrecords = list(TFRECORD_DIR.glob(f"{self.name}*.tfrecord.gz"))
+
+        data = tf.data.TFRecordDataset(tfrecords, compression_type="GZIP")
+        return data.map(lambda x: self._parse(x, bands=bands))
+
+    def _parse(
+        self,
+        serialized_example: bytes,
+        bands: tuple[str],
+    ) -> tf.Tensor:
+        """Parse a single example from a TFRecord file containing NAIP imagery.
+
+        Note that this currently only supports encoded byte images.
+        """
+
+        def decode_band(band: tf.Tensor) -> tf.Tensor:
+            """Decode a byte string into a 2D uint8 Tensor."""
+            data = tf.io.decode_raw(band, out_type=tf.uint8)
+            return tf.cast(tf.reshape(data, self.naip_shape), tf.float32) / 255.0
+
+        # uint8 data types must be parsed as strings and then decoded to uint8.
+        # See https://issuetracker.google.com/issues/296941927
+        features = {b: tf.io.FixedLenFeature(shape=[], dtype=tf.string) for b in bands}
+        example = tf.io.parse_single_example(serialized_example, features)
+        image = tf.stack([decode_band(example[b]) for b in bands], axis=-1)
+
+        return tf.expand_dims(image, axis=-1)

@@ -29,8 +29,6 @@ dependencies = [
     "ipykernel",
     "pre-commit",
     "wandb",
-    "tiler",
-    "rioxarray",
     "tqdm",
     "spyndex",
 ]

@@ -4,13 +4,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import rasterio
 import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras.optimizers import Adam
 
-from naip_cnn.config import MODEL_DIR
-from naip_cnn.data import NAIPDatasetWrapper
-from naip_cnn.utils.wandb import load_wandb_model_run
+from naip_cnn.config import MODEL_DIR, PRED_DIR
+from naip_cnn.data import NAIPDatasetWrapper, NAIPTFRecord
 
 
 @dataclass
@@ -65,6 +65,59 @@ class ModelRun:
 
         return epoch
 
+    def predict(
+        self,
+        dataset_id: str,
+        year: int,
+        batch_size: int = 256,
+        save: str | None = None,
+        **kwargs,
+    ):
+        """Predict a label for each pixel in a NAIP image from a given year."""
+        tfrecord = NAIPTFRecord(
+            id=dataset_id,
+            year=year,
+            footprint=self.dataset.footprint,
+            res=self.dataset.naip_res,
+        )
+
+        image = tfrecord.load_dataset(bands=self.bands).batch(batch_size)
+        raw_pred = self.model.predict(
+            image, steps=tfrecord.n_batches(batch_size), **kwargs
+        )
+        h, w = tfrecord.profile["height"], tfrecord.profile["width"]
+        pred = (
+            raw_pred.reshape(h, w, *self.dataset.lidar_shape)
+            .swapaxes(1, 2)
+            .reshape(h * self.dataset.lidar_shape[0], w * self.dataset.lidar_shape[1])
+            .clip(min=0)
+        )
+
+        # Optionally write out to geotiff
+        if save:
+            pred_path = PRED_DIR / f"{self.name}-{self.name}.tif"
+            pred_profile = tfrecord.profile.copy()
+
+            pred_profile["transform"][0] = self.dataset.lidar_res
+            pred_profile["transform"][4] = self.dataset.lidar_res
+            pred_profile.update(
+                {
+                    "width": pred.shape[1],
+                    "height": pred.shape[0],
+                    "dtype": "uint8",
+                    "count": 1,
+                    "compress": "DEFLATE",
+                    "nodata": 255,
+                }
+            )
+
+            with rasterio.open(pred_path, "w", **pred_profile) as dst:
+                dst.write(pred.astype(np.uint8), 1)
+
+            print(f"Saved prediction to {pred_path}")
+
+        return pred
+
     def save_model(self) -> Path:
         """Save the model to disk."""
         self.model.save(self.model_path)
@@ -90,6 +143,8 @@ class ModelRun:
     @staticmethod
     def from_wandb_run(run_path: str) -> ModelRun:
         """Load a model run from a W&B run."""
+        from naip_cnn.utils.wandb import load_wandb_model_run
+
         return load_wandb_model_run(run_path)
 
 
