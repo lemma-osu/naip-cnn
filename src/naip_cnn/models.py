@@ -10,6 +10,7 @@ from tensorflow.keras.optimizers import Adam
 
 from naip_cnn.config import MODEL_DIR
 from naip_cnn.data import NAIPDatasetWrapper
+from naip_cnn.utils.wandb import load_wandb_model_run
 
 
 @dataclass
@@ -32,10 +33,11 @@ class ModelRun:
         self.name = "-".join(parts)
         self.model_path = MODEL_DIR / f"{self.name}.keras"
 
-        # Serialize the regularization function
-        self.model_params["regularization"] = tf.keras.regularizers.serialize(
-            self.model_params["regularization"]
-        )
+        if "regularization" in self.model_params:
+            # Serialize the regularization function
+            self.model_params["regularization"] = tf.keras.regularizers.serialize(
+                self.model_params["regularization"]
+            )
 
     def __repr__(self) -> str:
         return f"<ModelRun name={self.name}>"
@@ -81,7 +83,14 @@ class ModelRun:
         bands = tuple(bands)
         dataset = NAIPDatasetWrapper.from_filename(dataset_name)
 
-        return ModelRun(model, dataset, label, bands)
+        return ModelRun(
+            model, model_params={}, dataset=dataset, label=label, bands=bands
+        )
+
+    @staticmethod
+    def from_wandb_run(run_path: str) -> ModelRun:
+        """Load a model run from a W&B run."""
+        return load_wandb_model_run(run_path)
 
 
 def CNN_v1(

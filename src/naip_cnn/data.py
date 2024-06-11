@@ -13,7 +13,7 @@ import tensorflow_io as tfio
 from naip_cnn.acquisitions import Acquisition
 from naip_cnn.augment import Augment
 from naip_cnn.config import BANDS, TRAIN_DIR
-from naip_cnn.utils import float_to_str, str_to_float
+from naip_cnn.utils.parsing import float_to_str, str_to_float
 
 
 class _HDF5DatasetMixin:

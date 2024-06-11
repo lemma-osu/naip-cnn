@@ -16,7 +16,7 @@ from tiler import Merger, Tiler
 
 from naip_cnn.config import BANDS, CRS, NAIP_RES, PRED_DIR, TFRECORD_DIR
 from naip_cnn.models import ModelRun
-from naip_cnn.utils import float_to_str
+from naip_cnn.utils.parsing import float_to_str
 
 
 def predict_image(

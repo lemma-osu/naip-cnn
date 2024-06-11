@@ -1,72 +1,47 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+import tempfile
+from pathlib import Path
 
-import h5py
-import numpy as np
+import tensorflow as tf
 import wandb
 
+from naip_cnn.augment import Augment
 from naip_cnn.config import WANDB_PROJECT
-
-if TYPE_CHECKING:
-    from naip_cnn.augment import Augment
-    from naip_cnn.data import NAIPDatasetWrapper
-    from naip_cnn.models import ModelRun
+from naip_cnn.data import NAIPDatasetWrapper
+from naip_cnn.models import ModelRun
 
 
-def float_to_str(f: float) -> str:
-    """Stringify a float for a filename.
+def load_wandb_model(run_path: str) -> tf.keras.Model:
+    """Load a model logged with a W&B run."""
+    run = wandb.Api().run(run_path)
 
-    For example:
-    - 0.5 -> '0p5'
-    - 1.0 -> '1'
-    """
-    f = float(f)
-    if f.is_integer():
-        return str(int(f))
-    return str(f).replace(".", "p")
+    model_artifacts = [a for a in run.logged_artifacts() if a.type == "model"]
+    if len(model_artifacts) != 1:
+        raise ValueError(f"Expected one model artifact, found {len(model_artifacts)}")
 
-
-def str_to_float(s: str) -> float:
-    """Parse a string into a float.
-
-    For example:
-    - '0p5' -> 0.5
-    - '1' -> 1.0
-    """
-    return float(s.replace("p", "."))
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_dir = Path(model_artifacts[0].download(root=tmpdir))
+        # Download returns a directory with one model file
+        model_path = next(model_dir.glob("*.keras"))
+        return tf.keras.models.load_model(model_path)
 
 
-def count_duplicate_images(train_path, val_path, key: str = "image") -> int:
-    """
-    Count the number of duplicate images between a train and validation HDF dataset.
+def load_wandb_model_run(run_path: str) -> ModelRun:
+    """Load a model run from a W&B run."""
+    run = wandb.Api().run(run_path)
+    cfg = run.config
+    model = load_wandb_model(run_path)
 
-    This is useful for ensuring that data leakage didn't occur during data splitting.
+    model_params = cfg["model"]["params"]
+    bands = tuple(cfg["data"]["imagery"]["bands"].split("-"))
+    label = cfg["data"]["lidar"]["label"]
+    dataset_name = Path(cfg["data"]["train"]["path"]).stem.replace("_train", "")
 
-    References
-    ----------
-    https://stackoverflow.com/questions/8317022/get-intersecting-rows-across-two-2d-numpy-arrays
-    """
-    with h5py.File(val_path, "r") as f:
-        val_image = f[key][:]
-    with h5py.File(train_path, "r") as f:
-        train_image = f[key][:]
+    dataset = NAIPDatasetWrapper.from_filename(dataset_name)
 
-    # Flatten the arrays
-    val_image = val_image.reshape(val_image.shape[0], -1)
-    train_image = train_image.reshape(train_image.shape[0], -1)
-
-    val_dtype = {
-        "names": [f"f{i}" for i in range(val_image.shape[1])],
-        "formats": val_image.shape[1] * [val_image.dtype],
-    }
-    train_dtype = {
-        "names": [f"f{i}" for i in range(train_image.shape[1])],
-        "formats": train_image.shape[1] * [train_image.dtype],
-    }
-
-    return np.intersect1d(val_image.view(val_dtype), train_image.view(train_dtype))
+    return ModelRun(model, model_params, dataset, label, bands)
 
 
 def initialize_wandb_run(
