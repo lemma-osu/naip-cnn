@@ -7,7 +7,6 @@ import numpy as np
 import rasterio
 import tensorflow as tf
 from tensorflow.keras import layers
-from tensorflow.keras.optimizers import Adam
 
 from naip_cnn.config import MODEL_DIR, PRED_DIR
 from naip_cnn.data import NAIPDatasetWrapper, NAIPTFRecord
@@ -148,7 +147,7 @@ class ModelRun:
         return load_wandb_model_run(run_path)
 
 
-def CNN_v1(
+def CNN_original(
     kernel_dim=5,
     filter_no=32,
     Dense1_no=256,
@@ -175,7 +174,7 @@ def CNN_v1(
             layers.Dropout(0.4),
             layers.Dense(units=1, activation="linear"),
         ],
-        name="CNN_v1",
+        name="CNN_original",
     )
 
 
@@ -224,7 +223,7 @@ def _decoder_block(x, conv_features, n_filters, regularization=None):
     )(x)
 
 
-def CNN_v2(
+def CNN_base(
     shape: tuple[int, int, int] = (150, 150, 4),
     out_shape=(5, 5),
     encoder_blocks=4,
@@ -234,7 +233,6 @@ def CNN_v2(
     convolutions_per_block=2,
     dropout=0.3,
     regularization=None,
-    name="CNN",
 ):
     """A simple, configurable CNN model."""
     inputs = x = tf.keras.layers.Input(shape=shape)
@@ -259,17 +257,61 @@ def CNN_v2(
 
     outputs = layers.Reshape(out_shape)(x)
 
-    return tf.keras.Model(inputs, outputs, name=name)
+    return tf.keras.Model(inputs, outputs, name="CNN_base")
 
 
-def UNet_v1(
+def CNN_resized(
+    shape: tuple[int, int, int] = (30, 30, 4),
+    resize_shape: tuple[int, int] = (64, 64),
+    out_shape=(1,),
+    encoder_blocks=4,
+    initial_filters=16,
+    filter_size=(3, 3),
+    pool_size=(2, 2),
+    convolutions_per_block=2,
+    dropout=0.3,
+    regularization=None,
+):
+    """
+    A simple, configurable CNN model with a resizing layer.
+
+    This addition was based on the fact that the 1m NAIP resampled to 0.6m seemed to
+    perform better.
+    """
+    inputs = x = tf.keras.layers.Input(shape=shape)
+
+    x = layers.Resizing(*resize_shape)(x)
+
+    # Build the encoder blocks
+    for i in range(encoder_blocks):
+        filters = initial_filters * 2**i
+
+        _, x = _encoder_block(
+            x,
+            filters,
+            filter_size=filter_size,
+            pool_size=pool_size,
+            convolutions_per_block=convolutions_per_block,
+            dropout=dropout,
+            regularization=regularization,
+        )
+
+    # Build the flatten and dense output layers
+    x = layers.Flatten()(x)
+    x = layers.Dense(units=out_shape[0] * out_shape[1], activation="linear")(x)
+
+    outputs = layers.Reshape(out_shape)(x)
+
+    return tf.keras.Model(inputs, outputs, name="CNN_resized")
+
+
+def UNet_base(
     in_shape,
     out_shape,
     encoder_blocks=4,
     max_filters=512,
     dropout=0.3,
     regularization=None,
-    name="UNet",
 ):
     """A modified UNet with a configurable number of encoder blocks and a calculated
     number of decoder blocks."""
@@ -320,8 +362,4 @@ def UNet_v1(
         1, 1, activation="linear", kernel_regularizer=regularization
     )(x)
 
-    model = tf.keras.Model(inputs, outputs, name=name)
-    optimizer = Adam(learning_rate=0.001)
-    model.compile(loss="mean_squared_error", optimizer=optimizer)
-
-    return model
+    return tf.keras.Model(inputs, outputs, name=UNet_base)
