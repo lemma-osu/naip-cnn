@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import difflib
 import json
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import tensorflow as tf
 
@@ -11,6 +13,50 @@ from naip_cnn.augment import Augment
 from naip_cnn.config import WANDB_PROJECT
 from naip_cnn.data import NAIPDatasetWrapper
 from naip_cnn.models import ModelRun
+
+WandBRun = wandb.apis.public.runs.Run
+
+
+class ConfigDict(dict):
+    """
+    A dictionary subclass that supports semantic equality checks for W&B configurations.
+
+    W&B configurations may be modified when logged, e.g. converting tuples to lists and
+    floats to ints. This class provides a custom equality check that accounts for these
+    modifications that do not modify semantic meaning.
+    """
+
+    def __init__(self, d: dict):
+        """
+        Create a ConfigDict from a dictionary.
+
+        This is done by:
+        1. Recursively converting nested dictionaries into ConfigDicts.
+        2. Serializing and unserializing to ensure JSON-compatible types.
+        """
+        cleaned = json.loads(json.dumps(d))
+
+        super().__init__(
+            {k: ConfigDict(v) if isinstance(v, dict) else v for k, v in cleaned.items()}
+        )
+
+    def __eq__(self, other: Any):
+        # The other object may not be a dictionary in the case of nested comparisons
+        if other is None or not isinstance(other, dict):
+            return False
+
+        other = ConfigDict(other)
+
+        for key, value in self.items():
+            # Keys are mismatched
+            if key not in other:
+                return False
+
+            # Values are mismatched
+            if value != other[key]:
+                return False
+
+        return True
 
 
 def load_wandb_model(run_path: str) -> tf.keras.Model:
@@ -57,7 +103,7 @@ def initialize_wandb_run(
     n_val: int,
     augmenter: Augment | None = None,
     allow_duplicate: bool = False,
-) -> wandb.apis.public.runs.Run:
+) -> WandBRun:
     """Initialize a W&B run for tracking an experiment."""
     group = f"{dataset.lidar_res:n}m_{label}"
 
@@ -75,10 +121,8 @@ def initialize_wandb_run(
     )
 
     if not allow_duplicate:
-        prev_runs = wandb.Api().runs(WANDB_PROJECT)
-
-        for prev_run in prev_runs:
-            if _configs_are_equal(prev_run.config, config):
+        for prev_run in wandb.Api().runs(WANDB_PROJECT):
+            if config == prev_run.config and group == prev_run.group:
                 raise ValueError(
                     f"Configuration matches an existing run ({prev_run.url}). "
                     "To allow duplicate configurations, set `allow_duplicate=True`."
@@ -101,79 +145,120 @@ def _build_wandb_config(
     n_train: int,
     n_val: int,
     augmenter: Augment | None = None,
-) -> dict:
+) -> ConfigDict:
     """Build a configuration dictionary for tracking an experiment with W&B."""
-    return {
-        "training": {
-            "batch_size": batch_size,
-            "learning_rate": learn_rate,
-            "epochs": epochs,
-        },
-        "model": {
-            "architecture": model_run.model.name,
-            "path": model_run.model_path.as_posix(),
-            "params": model_run.model_params,
-        },
-        "data": {
-            "train": {
-                "path": dataset._train.path.as_posix(),
-                "n_samples": n_train,
-                "augmentation": augmenter.to_json() if augmenter is not None else None,
+    return ConfigDict(
+        {
+            "training": {
+                "batch_size": batch_size,
+                "learning_rate": learn_rate,
+                "epochs": epochs,
             },
-            "val": {
-                "path": dataset._val.path.as_posix(),
-                "n_samples": n_val,
+            "model": {
+                "architecture": model_run.model.name,
+                "path": model_run.model_path.as_posix(),
+                "params": model_run.model_params,
             },
-            "date": {
-                "start": dataset.acquisition.start_date,
-                "end": dataset.acquisition.end_date,
+            "data": {
+                "train": {
+                    "path": dataset._train.path.as_posix(),
+                    "n_samples": n_train,
+                    "augmentation": augmenter.to_json()
+                    if augmenter is not None
+                    else None,
+                },
+                "val": {
+                    "path": dataset._val.path.as_posix(),
+                    "n_samples": n_val,
+                },
+                "date": {
+                    "start": dataset.acquisition.start_date,
+                    "end": dataset.acquisition.end_date,
+                },
+                "footprint": {
+                    "shape": dataset.footprint,
+                    "spacing": dataset.spacing,
+                    "units": "meters",
+                },
+                "imagery": {
+                    "bands": "-".join(bands),
+                    "resolution": dataset.naip_res,
+                    "acquisition": dataset.acquisition.name,
+                },
+                "lidar": {
+                    "label": label,
+                    "resolution": dataset.lidar_res,
+                    "asset": dataset.acquisition.lidar_asset,
+                },
             },
-            "footprint": {
-                "shape": dataset.footprint,
-                "spacing": dataset.spacing,
-                "units": "meters",
-            },
-            "imagery": {
-                "bands": "-".join(bands),
-                "resolution": dataset.naip_res,
-                "acquisition": dataset.acquisition.name,
-            },
-            "lidar": {
-                "label": label,
-                "resolution": dataset.lidar_res,
-                "asset": dataset.acquisition.lidar_asset,
-            },
-        },
-    }
+        }
+    )
 
 
-def _configs_are_equal(config1, config2):
-    """
-    Compare two configuration dictionaries for equality.
+def _get_missing_keys(reference: dict, other: dict) -> set[str]:
+    """Get the keys that are present in `reference` but missing from `other`."""
+    missing_keys = []
 
-    Note that we implement this from scratch to rather than a simple equality check
-    because values may be modified by W&B, e.g. converting tuples to lists and floats
-    to ints.
-    """
-    # Normalize to JSON to, e.g. convert tuples to lists
-    config1 = json.loads(json.dumps(config1))
-    config2 = json.loads(json.dumps(config2))
+    for key, value in reference.items():
+        if key not in other:
+            missing_keys.append(key)
 
-    # Check if the comparison is None, which may occur for nested checks
-    if config2 is None:
-        return False
+        if isinstance(value, dict):
+            missing_keys += _get_missing_keys(value, other.get(key, {}))
 
-    for key, value in config1.items():
-        # Keys are mismatched
-        if key not in config2:
-            return False
+    return set(missing_keys)
 
-        # Compare nested dictionaries
-        if isinstance(value, dict) and not _configs_are_equal(value, config2[key]):
-            return False
 
-        # Values are mismatched
-        if value != config2[key]:
-            return False
+def _get_mismatched_keys(
+    reference: ConfigDict, other: ConfigDict, parent_key: str | None = None
+) -> dict[str, tuple]:
+    """Get the keys that are present in both dictionaries but have different values."""
+    mismatched_keys = {}
 
-    return True
+    for key, value in reference.items():
+        # Include the key of parent dictionaries for nested cases
+        full_key = parent_key + "." + key if parent_key else key
+        if isinstance(value, dict):
+            mismatched_keys.update(
+                _get_mismatched_keys(value, other.get(key, {}), parent_key=full_key)
+            )
+
+        elif value != other.get(key, None):
+            mismatched_keys[full_key] = (value, other.get(key, None))
+
+    return mismatched_keys
+
+
+def compare_runs(reference_path: str, other_path: str) -> None:
+    """Compare the configuration of two W&B runs and print a summary of differences."""
+    config1 = wandb.Api().run(reference_path).config
+    config2 = wandb.Api().run(other_path).config
+
+    if config1 == config2:
+        print("Runs are equivalent.")
+        return
+
+    missing_keys = _get_missing_keys(config2, config1)
+    extra_keys = _get_missing_keys(config1, config2)
+    mismatched_keys = _get_mismatched_keys(config1, config2)
+
+    msg = "Runs have different configurations.\n"
+
+    if extra_keys:
+        msg += "\nExtra keys:\n----------------\n"
+        for key in extra_keys:
+            msg += f"\t{key}\n"
+
+    if missing_keys:
+        msg += "\nMissing keys:\n----------------\n"
+        for key in missing_keys:
+            msg += f"\t{key}\n"
+
+    if mismatched_keys:
+        msg += "\nMismatches:\n----------------\n"
+        for key, (val1, val2) in mismatched_keys.items():
+            msg += f"\n{key}:\n"
+            for line in difflib.ndiff(str(val1).splitlines(), str(val2).splitlines()):
+                msg += f"\t{line}\n"
+
+    print(msg)
