@@ -97,9 +97,9 @@ def train_model(
 
     try:
         model_run.model.fit(
-            train.take(100),
+            train,
             verbose=1,
-            validation_data=val.take(1),
+            validation_data=val,
             epochs=config.EPOCHS,
             callbacks=callbacks,
         )
