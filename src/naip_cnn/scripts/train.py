@@ -172,7 +172,14 @@ def log_correlation_scatterplot(y_true, y_pred):
 @click.option(
     "--allow-duplicate-runs", is_flag=True, help="Allow duplicate run configurations."
 )
-def main(allow_duplicate_runs: bool):
+@click.option(
+    "--allow-cpu", is_flag=True, help="Allow training on CPU if GPU is unavailable."
+)
+def main(allow_duplicate_runs: bool, allow_cpu: bool):
+    if not allow_cpu:
+        msg = "No GPU detected. Use --allow-cpu to train anyways."
+        assert tf.config.list_physical_devices("GPU"), msg
+
     # Load the data
     train, val, wrapper = load_data()
 
@@ -194,6 +201,7 @@ def main(allow_duplicate_runs: bool):
         allow_duplicate=allow_duplicate_runs,
     )
 
+    # Save the repository state as an artifact
     wandb.run.log_code()
 
     # Train and save the model
