@@ -4,10 +4,10 @@ from pathlib import Path
 EE_ASSET_DIR = "projects/ee-maptheforests/assets"
 
 # Local storage paths
-MODEL_DIR = Path("../models")
-TRAIN_DIR = Path("../data/training")
-TFRECORD_DIR = Path("../data/naip")
-PRED_DIR = Path("../data/pred")
+MODEL_DIR = Path("./models")
+TRAIN_DIR = Path("./data/training")
+TFRECORD_DIR = Path("./data/naip")
+PRED_DIR = Path("./data/pred")
 
 # Albers R6 WKT
 CRS = (

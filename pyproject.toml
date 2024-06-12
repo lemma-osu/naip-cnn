@@ -31,6 +31,7 @@ dependencies = [
     "wandb",
     "tqdm",
     "spyndex",
+    "click",
 ]
 
 [tool.hatch.version]

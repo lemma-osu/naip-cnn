@@ -5,8 +5,8 @@ import tempfile
 from pathlib import Path
 
 import tensorflow as tf
-import wandb
 
+import wandb
 from naip_cnn.augment import Augment
 from naip_cnn.config import WANDB_PROJECT
 from naip_cnn.data import NAIPDatasetWrapper
@@ -84,7 +84,9 @@ def initialize_wandb_run(
                     "To allow duplicate configurations, set `allow_duplicate=True`."
                 )
 
-    return wandb.init(project=WANDB_PROJECT, config=config, group=group, save_code=True)
+    return wandb.init(
+        project=WANDB_PROJECT, config=config, group=group, save_code=False
+    )
 
 
 def _build_wandb_config(

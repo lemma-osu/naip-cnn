@@ -1,4 +1,9 @@
+# Bytecode
 *.pyc
+
+# Data and model files
 data/**
 models/**
-notebooks/wandb
+
+# Local W&B cache
+wandb
