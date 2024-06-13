@@ -69,7 +69,7 @@ class ModelRun:
         dataset_id: str,
         year: int,
         batch_size: int = 256,
-        save: str | None = None,
+        filename: str | None = None,
         **kwargs,
     ):
         """Predict a label for each pixel in a NAIP image from a given year."""
@@ -93,8 +93,8 @@ class ModelRun:
         )
 
         # Optionally write out to geotiff
-        if save:
-            pred_path = PRED_DIR / f"{self.name}-{self.name}.tif"
+        if filename:
+            pred_path = PRED_DIR / f"{filename}.tif"
             pred_profile = tfrecord.profile.copy()
 
             pred_profile["transform"][0] = self.dataset.lidar_res
@@ -113,7 +113,7 @@ class ModelRun:
             with rasterio.open(pred_path, "w", **pred_profile) as dst:
                 dst.write(pred.astype(np.uint8), 1)
 
-            print(f"Saved prediction to {pred_path}")
+            return pred_path
 
         return pred
 
