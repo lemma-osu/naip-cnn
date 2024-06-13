@@ -6,7 +6,6 @@ from naip_cnn import models
 DATASET_NAME = "MAL2016_CanyonCreek-1-30-30x30-30"
 BANDS = ("R", "G", "B", "N")
 VEG_INDICES = tuple()
-ALL_BANDS = BANDS + VEG_INDICES
 LABEL = "cover"
 AUGMENT = None
 
@@ -28,3 +27,6 @@ MODEL_PARAMS = dict(
     dropout=0.3,
     regularization=tf.keras.regularizers.l2(0.01),
 )
+
+# Derived parameters
+ALL_BANDS = BANDS + VEG_INDICES

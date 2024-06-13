@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import click
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -168,14 +167,8 @@ def log_correlation_scatterplot(y_true, y_pred):
     wandb.log({"scatter": wandb.Image(fig)})
 
 
-@click.command()
-@click.option(
-    "--allow-duplicate-runs", is_flag=True, help="Allow duplicate run configurations."
-)
-@click.option(
-    "--allow-cpu", is_flag=True, help="Allow training on CPU if GPU is unavailable."
-)
-def main(allow_duplicate_runs: bool, allow_cpu: bool):
+def train(allow_duplicate_runs: bool, allow_cpu: bool):
+    """Train a new model and log it to W&B."""
     if not allow_cpu:
         msg = "No GPU detected. Use --allow-cpu to train anyways."
         assert tf.config.list_physical_devices("GPU"), msg
@@ -209,19 +202,16 @@ def main(allow_duplicate_runs: bool, allow_cpu: bool):
     wandb.log_model(training_result.model_run.save_model())
 
     # Evaluate the model
-    metrics = evaluate_model(training_result, val)
-    wandb.run.summary.update(metrics)
+    summary = evaluate_model(training_result, val)
+    summary["interrupted"] = training_result.interrupted
+    wandb.run.summary.update(summary)
 
     # Notify on run completion, unless the user ended the run manually
     if not training_result.interrupted:
         run_summary = (
-            f"R^2: {metrics['final/r2_score']:.4f}, MAE: {metrics['final/mae']:.4f}  "
+            f"R^2: {summary['final/r2_score']:.4f}, MAE: {summary['final/mae']:.4f}  "
         )
         wandb.alert(title="Run Complete", text=run_summary)
 
     # Mark the run as complete
     wandb.run.finish()
-
-
-if __name__ == "__main__":
-    main()
