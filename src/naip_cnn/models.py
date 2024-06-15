@@ -186,14 +186,17 @@ def _encoder_block(
     convolutions_per_block,
     dropout,
     regularization=None,
+    activation="relu",
+    **kwargs,
 ):
     for _ in range(convolutions_per_block):
         x = layers.Conv2D(
             n_filters,
             filter_size,
             padding="same",
-            activation="relu",
+            activation=activation,
             kernel_regularizer=regularization,
+            **kwargs,
         )(x)
 
     p = layers.MaxPool2D(pool_size)(x)
@@ -233,6 +236,8 @@ def CNN_base(
     convolutions_per_block=2,
     dropout=0.3,
     regularization=None,
+    activation="relu",
+    **kwargs,
 ):
     """A simple, configurable CNN model."""
     inputs = x = tf.keras.layers.Input(shape=shape)
@@ -249,6 +254,8 @@ def CNN_base(
             convolutions_per_block=convolutions_per_block,
             dropout=dropout,
             regularization=regularization,
+            activation=activation,
+            **kwargs,
         )
 
     # Build the flatten and dense output layers
@@ -263,7 +270,7 @@ def CNN_base(
 def CNN_resized(
     shape: tuple[int, int, int] = (30, 30, 4),
     resize_shape: tuple[int, int] = (64, 64),
-    out_shape=(1,),
+    out_shape=(1, 1),
     encoder_blocks=4,
     initial_filters=16,
     filter_size=(3, 3),
@@ -271,6 +278,8 @@ def CNN_resized(
     convolutions_per_block=2,
     dropout=0.3,
     regularization=None,
+    activation="relu",
+    **kwargs,
 ):
     """
     A simple, configurable CNN model with a resizing layer.
@@ -294,6 +303,8 @@ def CNN_resized(
             convolutions_per_block=convolutions_per_block,
             dropout=dropout,
             regularization=regularization,
+            activation=activation,
+            **kwargs,
         )
 
     # Build the flatten and dense output layers
