@@ -18,14 +18,16 @@ PATIENCE = 30
 LEARN_RATE = 0.0001
 MODEL_CLS = models.CNN_resized
 MODEL_PARAMS = dict(
-    encoder_blocks=5,
+    encoder_blocks=4,
     initial_filters=16,
-    resize_shape=(128, 128),
+    resize_shape=(64, 64),
     convolutions_per_block=2,
     filter_size=(3, 3),
     pool_size=(2, 2),
     dropout=0.3,
-    regularization=tf.keras.regularizers.l2(0.01),
+    dilation_rate=(1, 1),
+    regularization=tf.keras.regularizers.l2(),
+    activation="relu",
 )
 
 # Derived parameters
