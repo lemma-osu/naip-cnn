@@ -7,17 +7,20 @@
 		"context": "..",
 		"dockerfile": "./Dockerfile"
 	},
+	"containerEnv": {
+		// Silence TF info and warning messages
+		"TF_CPP_MIN_LOG_LEVEL": "2",
+		// Set the local data/model directory based on the NAIP_DIR env variable
+		"NAIP_DIR": "${localEnv:NAIP_DIR}"
+	},
 	"mounts": [
 		// Mount the data and model directories into the container
-		"source=${env:HOME}${env:USERPROFILE}/naip-cnn/data,target=${containerWorkspaceFolder}/data,type=bind,consistency=cached",
-		"source=${env:HOME}${env:USERPROFILE}/naip-cnn/models,target=${containerWorkspaceFolder}/models,type=bind,consistency=cached",
+		"source=${env:NAIP_DIR}/data,target=${containerWorkspaceFolder}/data,type=bind,consistency=cached",
+		"source=${env:NAIP_DIR}/models,target=${containerWorkspaceFolder}/models,type=bind,consistency=cached",
+		
 		// Mount Earth Engine credentials into the container
 		"source=${env:HOME}${env:USERPROFILE}/.config,target=/root/.config,type=bind,consistency=cached"
 	],
-	"containerEnv": {
-		// Silence TF info and warning messages
-		"TF_CPP_MIN_LOG_LEVEL": "2"
-	},
 	"customizations": {
 		"vscode": {
 			"extensions": [
