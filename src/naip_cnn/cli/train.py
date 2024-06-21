@@ -5,12 +5,11 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from sklearn.metrics import r2_score
 
 import wandb
 from naip_cnn import models
 from naip_cnn.data import NAIPDatasetWrapper
-from naip_cnn.utils.training import EpochTracker
+from naip_cnn.utils.training import EpochTracker, R2Score2D
 from naip_cnn.utils.wandb import initialize_wandb_run
 
 from . import config
@@ -61,7 +60,7 @@ def load_model_run(wrapper) -> models.ModelRun:
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=config.LEARN_RATE),
         loss="mse",
-        metrics=["mae", "mse"],
+        metrics=["mae", "mse", R2Score2D()],
         run_eagerly=False,
     )
 
@@ -124,20 +123,19 @@ def evaluate_model(training_result: TrainingResult, val: tf.data.Dataset) -> dic
     metrics = {
         "best_epoch": training_result.best_epoch,
         "stopped_epoch": training_result.stopped_epoch,
-        "r2_score": r2_score(y_true.ravel(), y_pred.ravel()),
     }
 
     for metric, value in zip(
         training_result.model_run.model.metrics_names, metric_vals
     ):
-        metrics[metric] = value
+        # Prefix all metrics with "final/" to differentiate them from epoch metrics
+        metrics[f"final/{metric}"] = value
 
     # Create evaluation figures
     log_correlation_scatterplot(y_true, y_pred)
     log_distribution_histogram(y_true, y_pred)
 
-    # Prefix all metrics with "final/" to differentiate them from epoch metrics
-    return {f"final/{k}": v for k, v in metrics.items()}
+    return metrics
 
 
 def log_distribution_histogram(y_true, y_pred):
