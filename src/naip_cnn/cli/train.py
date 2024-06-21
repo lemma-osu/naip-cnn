@@ -167,7 +167,9 @@ def log_correlation_scatterplot(y_true, y_pred):
     wandb.log({"scatter": wandb.Image(fig)})
 
 
-def train(allow_duplicate_runs: bool, allow_cpu: bool):
+def train(
+    allow_duplicate: bool = False, allow_cpu: bool = False, dry_run: bool = False
+):
     """Train a new model and log it to W&B."""
     if not allow_cpu:
         msg = "No GPU detected. Use --allow-cpu to train anyways."
@@ -180,7 +182,7 @@ def train(allow_duplicate_runs: bool, allow_cpu: bool):
     model_run = load_model_run(wrapper)
 
     # Initialize the tracking experiment
-    initialize_wandb_run(
+    run = initialize_wandb_run(
         dataset=wrapper,
         model_run=model_run,
         bands=config.ALL_BANDS,
@@ -191,8 +193,16 @@ def train(allow_duplicate_runs: bool, allow_cpu: bool):
         n_train=len(train) * config.BATCH_SIZE,
         n_val=len(val) * config.BATCH_SIZE,
         augmenter=config.AUGMENT,
-        allow_duplicate=allow_duplicate_runs,
+        allow_duplicate=True if dry_run else allow_duplicate,
+        mode="disabled" if dry_run else "online",
     )
+
+    if dry_run:
+        import json
+
+        print(json.dumps(dict(run.config), indent=2))
+        print(model_run.model.summary())
+        return
 
     # Save the repository state as an artifact
     wandb.run.log_code()

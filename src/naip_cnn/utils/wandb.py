@@ -103,6 +103,7 @@ def initialize_wandb_run(
     n_val: int,
     augmenter: Augment | None = None,
     allow_duplicate: bool = False,
+    mode: str = "online",
 ) -> WandBRun:
     """Initialize a W&B run for tracking an experiment."""
     group = f"{dataset.lidar_res:n}m_{label}"
@@ -129,7 +130,7 @@ def initialize_wandb_run(
                 )
 
     return wandb.init(
-        project=WANDB_PROJECT, config=config, group=group, save_code=False
+        project=WANDB_PROJECT, config=config, group=group, save_code=False, mode=mode
     )
 
 

@@ -37,14 +37,15 @@ def compare_cmd(run_path: str, other_path: str) -> None:
 
 @cli.command(name="train")
 @click.option(
-    "--allow-duplicate-runs", is_flag=True, help="Allow duplicate run configurations."
+    "--allow-duplicate", is_flag=True, help="Allow duplicate run configurations."
 )
 @click.option(
     "--allow-cpu", is_flag=True, help="Allow training on CPU if GPU is unavailable."
 )
-def train_cmd(allow_duplicate_runs: bool, allow_cpu: bool):
+@click.option("--dry-run", is_flag=True, help="Print a summary without training.")
+def train_cmd(allow_duplicate: bool, allow_cpu: bool, dry_run: bool):
     """Train a new model and log it to W&B."""
-    train(allow_duplicate_runs, allow_cpu)
+    train(allow_duplicate=allow_duplicate, allow_cpu=allow_cpu, dry_run=dry_run)
 
 
 if __name__ == "__main__":
