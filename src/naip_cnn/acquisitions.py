@@ -22,15 +22,15 @@ class Acquisition:
         return f"<Acquisition name={self.name}>"
 
     @property
-    def proj(self):
+    def proj(self) -> ee.Projection:
         return ee.Projection(config.CRS)
 
     @property
-    def geometry(self):
+    def geometry(self) -> ee.Geometry:
         return ee.Image(self.lidar_asset).geometry()
 
     @property
-    def mask(self):
+    def mask(self) -> ee.Image:
         """A mask of fast loss over the acqusition period."""
         return (
             ee.ImageCollection("USFS/GTAC/LCMS/v2022-8")
@@ -43,7 +43,7 @@ class Acquisition:
             .reproject(self.proj.atScale(30))
         )
 
-    def load_naip(self, scale: float = config.NAIP_RES):
+    def load_naip(self, scale: float = config.NAIP_RES) -> ee.Image:
         return (
             ee.ImageCollection("USDA/NAIP/DOQQ")
             .filterDate(self.start_date, self.end_date)
@@ -53,7 +53,7 @@ class Acquisition:
             .reproject(self.proj.atScale(scale))
         )
 
-    def load_lidar(self, scale: float = config.LIDAR_RES):
+    def load_lidar(self, scale: float = config.LIDAR_RES) -> ee.Image:
         return (
             ee.Image(self.lidar_asset)
             .updateMask(self.mask)

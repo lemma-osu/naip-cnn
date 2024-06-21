@@ -175,7 +175,6 @@ class NAIPDatasetWrapper:
         self.lidar_res = lidar_res
         self.footprint = footprint
         self.spacing = spacing if spacing is not None else footprint[0]
-        self.name = self._get_name()
         self.csv_path = TRAIN_DIR / (self.name + ".csv")
 
         # The shape of the image and labels in pixels
@@ -217,7 +216,8 @@ class NAIPDatasetWrapper:
     def __repr__(self) -> str:
         return f"<NAIPDatasetWrapper name={self.name}>"
 
-    def _get_name(self) -> str:
+    @property
+    def name(self) -> str:
         footprint_str = f"{self.footprint[0]}x{self.footprint[1]}"
         naip_res_str = float_to_str(self.naip_res)
         lidar_res_str = float_to_str(self.lidar_res)
