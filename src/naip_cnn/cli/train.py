@@ -8,6 +8,7 @@ import tensorflow as tf
 
 import wandb
 from naip_cnn import models
+from naip_cnn.acquisitions import Acquisition
 from naip_cnn.data import NAIPDatasetWrapper
 from naip_cnn.utils.training import EpochTracker, R2Score2D
 from naip_cnn.utils.wandb import initialize_wandb_run
@@ -24,7 +25,14 @@ class TrainingResult:
 
 
 def load_data() -> tuple[tf.data.Dataset, tf.data.Dataset, NAIPDatasetWrapper]:
-    wrapper = NAIPDatasetWrapper.from_filename(config.DATASET_NAME)
+    acquisitions = [Acquisition.from_name(name) for name in config.DATASETS]
+    wrapper = NAIPDatasetWrapper(
+        acquisitions,
+        naip_res=config.NAIP_RES,
+        lidar_res=config.LIDAR_RES,
+        footprint=config.FOOTPRINT,
+        spacing=config.SPACING,
+    )
 
     train = (
         wrapper.load_train(

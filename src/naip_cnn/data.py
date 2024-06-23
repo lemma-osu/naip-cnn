@@ -149,10 +149,10 @@ class NAIPDatasetWrapper:
 
     def __init__(
         self,
-        acquisition: Acquisition,
+        acquisitions: list[Acquisition],
         naip_res=1.0,
         lidar_res=30.0,
-        footprint: tuple[int, int] = (150, 150),
+        footprint: tuple[int, int] = (30, 30),
         spacing: float = None,
     ) -> None:
         """
@@ -170,7 +170,7 @@ class NAIPDatasetWrapper:
             The spacing between sampled footprints in meters. If None, defaults to
             the footprint width.
         """
-        self.acquisition = acquisition
+        self.acquisitions = acquisitions
         self.naip_res = naip_res
         self.lidar_res = lidar_res
         self.footprint = footprint
@@ -182,9 +182,18 @@ class NAIPDatasetWrapper:
         self.naip_shape = int(h // naip_res), int(w // naip_res)
         self.lidar_shape = int(h // lidar_res), int(w // lidar_res)
 
-        self._train = _NAIPHDF5Dataset(path=TRAIN_DIR / (self.name + "_train.h5"))
-        self._val = _NAIPHDF5Dataset(path=TRAIN_DIR / (self.name + "_val.h5"))
-        self._test = _NAIPHDF5Dataset(path=TRAIN_DIR / (self.name + "_test.h5"))
+        self._train_paths = [
+            TRAIN_DIR / ("-".join([a.name, self.suffix]) + "_train.h5")
+            for a in self.acquisitions
+        ]
+        self._val_paths = [
+            TRAIN_DIR / ("-".join([a.name, self.suffix]) + "_val.h5")
+            for a in self.acquisitions
+        ]
+        self._test_paths = [
+            TRAIN_DIR / ("-".join([a.name, self.suffix]) + "_test.h5")
+            for a in self.acquisitions
+        ]
 
     def load_train(
         self,
@@ -193,9 +202,18 @@ class NAIPDatasetWrapper:
         veg_indices: tuple[str] = tuple(),
         augmenter: Augment | None = None,
     ):
-        return self._train._load(
-            label=label, bands=bands, veg_indices=veg_indices, augmenter=augmenter
-        )
+        datasets = [_NAIPHDF5Dataset(path) for path in self._train_paths]
+        n_samples = sum([ds.n_samples for ds in datasets])
+
+        loaded = [
+            ds._load(
+                label=label, bands=bands, veg_indices=veg_indices, augmenter=augmenter
+            )
+            for ds in datasets
+        ]
+        merged = tf.data.Dataset.sample_from_datasets(loaded)
+
+        return merged.apply(tf.data.experimental.assert_cardinality(n_samples))
 
     def load_val(
         self,
@@ -203,7 +221,17 @@ class NAIPDatasetWrapper:
         bands: tuple[str] = BANDS,
         veg_indices: tuple[str] = tuple(),
     ):
-        return self._val._load(label=label, bands=bands, veg_indices=veg_indices)
+        # TODO: Refactor out the duplication
+        datasets = [_NAIPHDF5Dataset(path) for path in self._val_paths]
+        n_samples = sum([ds.n_samples for ds in datasets])
+
+        loaded = [
+            ds._load(label=label, bands=bands, veg_indices=veg_indices)
+            for ds in datasets
+        ]
+        merged = tf.data.Dataset.sample_from_datasets(loaded)
+
+        return merged.apply(tf.data.experimental.assert_cardinality(n_samples))
 
     def load_test(
         self,
@@ -211,20 +239,37 @@ class NAIPDatasetWrapper:
         bands: tuple[str] = BANDS,
         veg_indices: tuple[str] = tuple(),
     ):
-        return self._test._load(label=label, bands=bands, veg_indices=veg_indices)
+        # TODO: Refactor out the duplication:
+        datasets = [_NAIPHDF5Dataset(path) for path in self._test_paths]
+        n_samples = sum([ds.n_samples for ds in datasets])
+
+        loaded = [
+            ds._load(label=label, bands=bands, veg_indices=veg_indices)
+            for ds in datasets
+        ]
+        merged = tf.data.Dataset.sample_from_datasets(loaded)
+
+        return merged.apply(tf.data.experimental.assert_cardinality(n_samples))
 
     def __repr__(self) -> str:
         return f"<NAIPDatasetWrapper name={self.name}>"
 
     @property
     def name(self) -> str:
+        """Name that describes the acquisitions and sampling metadata."""
+        acquisition_names = "_".join([a.name for a in self.acquisitions])
+        return "-".join([acquisition_names, self.suffix])
+
+    @property
+    def suffix(self) -> str:
+        """Name suffix that describes metadata about how the acquisitions were sampled.
+        """
         footprint_str = f"{self.footprint[0]}x{self.footprint[1]}"
         naip_res_str = float_to_str(self.naip_res)
         lidar_res_str = float_to_str(self.lidar_res)
         spacing_str = float_to_str(self.spacing)
         return "-".join(
             [
-                self.acquisition.name,
                 naip_res_str,
                 lidar_res_str,
                 footprint_str,
@@ -239,7 +284,7 @@ class NAIPDatasetWrapper:
         name, naip_res, lidar_res, footprint, spacing = basename.split("-")
 
         return NAIPDatasetWrapper(
-            acquisition=Acquisition.from_name(name),
+            acquisitions=[Acquisition.from_name(name)],
             naip_res=str_to_float(naip_res),
             lidar_res=str_to_float(lidar_res),
             footprint=tuple(map(int, footprint.split("x"))),
@@ -249,11 +294,36 @@ class NAIPDatasetWrapper:
 
     def load_lidar(self) -> ee.Image:
         """Load the LiDAR labels for the dataset."""
-        return self.acquisition.load_lidar(self.lidar_res)
+        if len(self.acquisitions) == 1:
+            return self.acquisitions[0].load_lidar(self.lidar_res)
+
+        return ee.ImageCollection(
+            [a.load_lidar(self.lidar_res) for a in self.acquisitions]
+        ).mosaic()
 
     def load_naip(self) -> ee.Image:
         """Load the NAIP mosaic for the dataset."""
-        return self.acquisition.load_naip(self.naip_res)
+        if len(self.acquisitions) == 1:
+            return self.acquisitions[0].load_naip(self.naip_res)
+
+        return ee.ImageCollection(
+            [a.load_naip(self.naip_res) for a in self.acquisitions]
+        ).mosaic()
+
+    @property
+    def lidar_assets(self) -> list[str]:
+        """Return the LiDAR assets used to build the dataset."""
+        return [a.lidar_asset for a in self.acquisitions]
+
+    @property
+    def start_date(self) -> str:
+        """Return the earliest acquisition date."""
+        return min([a.start_date for a in self.acquisitions])
+
+    @property
+    def end_date(self) -> str:
+        """Return the latest acquisition date."""
+        return max([a.end_date for a in self.acquisitions])
 
 
 @dataclass

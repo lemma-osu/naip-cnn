@@ -3,16 +3,26 @@ import tensorflow as tf
 from naip_cnn import models
 
 # Data parameters
-DATASET_NAME = "MAL2016_CanyonCreek-1-30-30x30-30"
+DATASETS = [
+    "MAL2016_CanyonCreek",
+    "MAL2017_Crow",
+    "MAL2017_JohnDay",
+]
+NAIP_RES = 1
+LIDAR_RES = 30
+LABEL = "cover"
+FOOTPRINT = (30, 30)
+SPACING = 30
+
+# Preprocessing parameters
 BANDS = ("R", "G", "B", "N")
 VEG_INDICES = tuple()
-LABEL = "cover"
 AUGMENT = None
 
 # Training parameters
 BATCH_SIZE = 64
 EPOCHS = 500
-PATIENCE = 30
+PATIENCE = 25
 
 # Model parameters
 LEARN_RATE = 0.0001

@@ -9,6 +9,7 @@ from typing import Any
 import tensorflow as tf
 
 import wandb
+from naip_cnn.acquisitions import Acquisition
 from naip_cnn.augment import Augment
 from naip_cnn.config import WANDB_PROJECT
 from naip_cnn.data import NAIPDatasetWrapper
@@ -83,9 +84,21 @@ def load_wandb_model_run(run_path: str) -> ModelRun:
     model_params = cfg["model"]["params"]
     bands = tuple(cfg["data"]["imagery"]["bands"].split("-"))
     label = cfg["data"]["lidar"]["label"]
-    dataset_name = Path(cfg["data"]["train"]["path"]).stem.replace("_train", "")
 
-    dataset = NAIPDatasetWrapper.from_filename(dataset_name)
+    footprint = cfg["data"]["footprint"]["shape"]
+    spacing = cfg["data"]["footprint"]["spacing"]
+    lidar_res = cfg["data"]["lidar"]["resolution"]
+    naip_res = cfg["data"]["imagery"]["resolution"]
+    acquisition_names = cfg["data"]["imagery"]["acquisitions"]
+    acquisitions = [Acquisition.from_name(name) for name in acquisition_names]
+
+    dataset = NAIPDatasetWrapper(
+        acquisitions,
+        naip_res=naip_res,
+        lidar_res=lidar_res,
+        footprint=footprint,
+        spacing=spacing,
+    )
 
     return ModelRun(model, model_params, dataset, label, bands)
 
@@ -162,19 +175,19 @@ def _build_wandb_config(
             },
             "data": {
                 "train": {
-                    "path": dataset._train.path.as_posix(),
+                    "paths": [path.as_posix() for path in dataset._train_paths],
                     "n_samples": n_train,
                     "augmentation": augmenter.to_json()
                     if augmenter is not None
                     else None,
                 },
                 "val": {
-                    "path": dataset._val.path.as_posix(),
+                    "paths": [path.as_posix() for path in dataset._val_paths],
                     "n_samples": n_val,
                 },
                 "date": {
-                    "start": dataset.acquisition.start_date,
-                    "end": dataset.acquisition.end_date,
+                    "start": dataset.start_date,
+                    "end": dataset.end_date,
                 },
                 "footprint": {
                     "shape": dataset.footprint,
@@ -184,12 +197,12 @@ def _build_wandb_config(
                 "imagery": {
                     "bands": "-".join(bands),
                     "resolution": dataset.naip_res,
-                    "acquisition": dataset.acquisition.name,
+                    "acquisitions": [a.name for a in dataset.acquisitions],
                 },
                 "lidar": {
                     "label": label,
                     "resolution": dataset.lidar_res,
-                    "asset": dataset.acquisition.lidar_asset,
+                    "assets": dataset.lidar_assets,
                 },
             },
         }

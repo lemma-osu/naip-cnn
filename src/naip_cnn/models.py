@@ -123,23 +123,6 @@ class ModelRun:
         return self.model_path
 
     @staticmethod
-    def from_filename(filename: str) -> ModelRun:
-        """Load a model run from a filename."""
-        basename = Path(filename).stem
-        parts = basename.split("-")
-        bands = tuple(parts[-1])
-        label = parts[-2]
-        dataset_name = "-".join(parts[1:-2])
-
-        model = tf.keras.models.load_model(MODEL_DIR / f"{basename}.keras")
-        bands = tuple(bands)
-        dataset = NAIPDatasetWrapper.from_filename(dataset_name)
-
-        return ModelRun(
-            model, model_params={}, dataset=dataset, label=label, bands=bands
-        )
-
-    @staticmethod
     def from_wandb_run(run_path: str) -> ModelRun:
         """Load a model run from a W&B run."""
         from naip_cnn.utils.wandb import load_wandb_model_run
