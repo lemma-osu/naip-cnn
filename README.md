@@ -15,7 +15,7 @@ Training data is sampled from NAIP imagery and LiDAR acquisitions stored on Goog
 Edit `src/naip_cnn/cli/config.py` to specify the training data and model parameters. Run the following command to train a model:
 
 ```bash
-python -m naip_cnn.cli train 
+naip_cnn train 
 ```
 
 The trained model, configuration, and summary metrics will be logged to Weights & Biases.
@@ -25,6 +25,6 @@ The trained model, configuration, and summary metrics will be logged to Weights 
 To predict raster attributes from a trained model, first download the corresponding NAIP as a TFRecord dataset by running `notebooks/02_export_naip.ipynb`. Then run:
 
 ```bash
-python -m naip_cnn.cli predict [MODEL_PATH] [DATASET_ID] [DATASET_YEAR]
+naip_cnn predict [MODEL_PATH] [DATASET_ID] [DATASET_YEAR]
 ```
 

@@ -37,6 +37,9 @@ dependencies = [
 [tool.hatch.version]
 path = "src/naip_cnn/__init__.py"
 
+[project.scripts]
+naip_cnn = "naip_cnn.cli:cli"
+
 [tool.ruff]
 target-version = "py38"
 select = ["E", "I", "F", "B", "FA", "UP", "ISC", "PT", "NPY", "Q", "RET", "SIM", "PERF"]
