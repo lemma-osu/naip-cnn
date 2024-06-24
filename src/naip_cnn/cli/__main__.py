@@ -43,9 +43,15 @@ def compare_cmd(run_path: str, other_path: str) -> None:
     "--allow-cpu", is_flag=True, help="Allow training on CPU if GPU is unavailable."
 )
 @click.option("--dry-run", is_flag=True, help="Print a summary without training.")
-def train_cmd(allow_duplicate: bool, allow_cpu: bool, dry_run: bool):
+@click.option("--debug", is_flag=True, help="Train a test model without W&B logging.")
+def train_cmd(allow_duplicate: bool, allow_cpu: bool, dry_run: bool, debug: bool):
     """Train a new model and log it to W&B."""
-    train(allow_duplicate=allow_duplicate, allow_cpu=allow_cpu, dry_run=dry_run)
+    train(
+        allow_duplicate=allow_duplicate,
+        allow_cpu=allow_cpu,
+        dry_run=dry_run,
+        debug=debug,
+    )
 
 
 if __name__ == "__main__":

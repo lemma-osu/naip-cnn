@@ -5,12 +5,13 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras.callbacks import EarlyStopping
 
 import wandb
 from naip_cnn import models
 from naip_cnn.acquisitions import Acquisition
 from naip_cnn.data import NAIPDatasetWrapper
-from naip_cnn.utils.training import EpochTracker, R2Score2D
+from naip_cnn.utils.training import R2Score2D, SaveBestWeights
 from naip_cnn.utils.wandb import initialize_wandb_run
 
 from . import config
@@ -84,22 +85,9 @@ def load_model_run(wrapper) -> models.ModelRun:
 def train_model(
     model_run: models.ModelRun, train: tf.data.Dataset, val: tf.data.Dataset
 ) -> TrainingResult:
-    epoch_tracker = EpochTracker()
-
-    callbacks = [
-        tf.keras.callbacks.ModelCheckpoint(
-            # keras does a second formatting run for the epoch
-            filepath=f"./models/.checkpoint_{model_run.name}_{{epoch:04d}}.h5",
-            save_best_only=True,
-            save_weights_only=True,
-            verbose=False,
-        ),
-        tf.keras.callbacks.EarlyStopping(
-            verbose=1, patience=config.PATIENCE, restore_best_weights=False
-        ),
-        epoch_tracker,
-        wandb.keras.WandbMetricsLogger(),
-    ]
+    checkpoint = SaveBestWeights(model_directory="./models", verbose=False)
+    early_stopping = EarlyStopping(verbose=1, patience=config.PATIENCE)
+    wandb_logger = wandb.keras.WandbCallback()
 
     try:
         model_run.model.fit(
@@ -107,18 +95,23 @@ def train_model(
             verbose=1,
             validation_data=val,
             epochs=config.EPOCHS,
-            callbacks=callbacks,
+            callbacks=[
+                checkpoint,
+                early_stopping,
+                wandb_logger,
+            ],
         )
     # Allow manual early stopping
     except KeyboardInterrupt:
         model_run.model.stop_training = True
         interrupted = True
-        print("\n\nTraining stopped manually. Evaluating model...\n")
+        print("\n\nTraining stopped manually.\n")
     else:
         interrupted = False
 
-    best_epoch = model_run.load_best_checkpoint()
-    stopped_epoch = epoch_tracker.last_epoch
+    best_epoch, stopped_epoch = checkpoint.best_epoch, checkpoint.last_epoch
+
+    checkpoint.load_best_weights()
 
     return TrainingResult(model_run, best_epoch, stopped_epoch, interrupted)
 
@@ -174,12 +167,16 @@ def log_correlation_scatterplot(y_true, y_pred):
 
 
 def train(
-    allow_duplicate: bool = False, allow_cpu: bool = False, dry_run: bool = False
+    allow_duplicate: bool = False,
+    allow_cpu: bool = False,
+    dry_run: bool = False,
+    debug: bool = False,
 ):
     """Train a new model and log it to W&B."""
     if not allow_cpu:
         msg = "No GPU detected. Use --allow-cpu to train anyways."
         assert tf.config.list_physical_devices("GPU"), msg
+    test_run = dry_run or debug
 
     # Load the data
     train, val, wrapper = load_data()
@@ -199,8 +196,8 @@ def train(
         n_train=len(train) * config.BATCH_SIZE,
         n_val=len(val) * config.BATCH_SIZE,
         augmenter=config.AUGMENT,
-        allow_duplicate=True if dry_run else allow_duplicate,
-        mode="disabled" if dry_run else "online",
+        allow_duplicate=True if test_run else allow_duplicate,
+        mode="disabled" if test_run else "online",
     )
 
     if dry_run:
@@ -208,6 +205,11 @@ def train(
 
         print(json.dumps(dict(run.config), indent=2))
         print(model_run.model.summary())
+        return
+
+    if debug:
+        tf.debugging.disable_traceback_filtering()
+        train_model(model_run, train.take(1), val.take(1))
         return
 
     # Save the repository state as an artifact

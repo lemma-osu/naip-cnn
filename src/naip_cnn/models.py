@@ -41,29 +41,6 @@ class ModelRun:
     def __repr__(self) -> str:
         return f"<ModelRun name={self.name}>"
 
-    def load_best_checkpoint(self, delete_checkpoints=True) -> int:
-        """Load the best weights from a checkpoint and return the associated epoch.
-
-        This assumes that checkpoints are named ".checkpoint_{run.name}_{epoch}.h5" and
-        were generated with `save_best_only=True`, so that the last checkpoint saved is
-        the best. All checkpoints are optionally deleted after the best one is loaded.
-        """
-        checkpoints = list(MODEL_DIR.glob(f".checkpoint_{self.name}_*.h5"))
-        if not checkpoints:
-            raise FileNotFoundError("No checkpoints found.")
-
-        checkpoints.sort()
-        checkpoint_path = checkpoints[-1]
-        epoch = int(checkpoint_path.stem.split("_")[-1])
-
-        self.model.load_weights(checkpoint_path)
-
-        if delete_checkpoints:
-            for file in checkpoints:
-                file.unlink()
-
-        return epoch
-
     def predict(
         self,
         dataset_id: str,
