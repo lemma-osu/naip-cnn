@@ -143,8 +143,8 @@ def log_distribution_histogram(y_true, y_pred):
     """Log a histogram of the true and predicted values to W&B."""
     fig, ax = plt.subplots(figsize=(6, 4))
 
-    ax.hist(y_true.ravel(), bins=100, alpha=0.5, label="y_true")
-    ax.hist(y_pred.ravel(), bins=100, alpha=0.5, label="y_pred")
+    _, bins, _ = ax.hist(y_true.ravel(), bins=100, alpha=0.5, label="y_true")
+    ax.hist(y_pred.ravel(), bins=bins, alpha=0.5, label="y_pred")
     ax.legend()
     ax.set_yticks([])
     plt.tight_layout()
