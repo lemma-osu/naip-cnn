@@ -87,7 +87,7 @@ def train_model(
 ) -> TrainingResult:
     checkpoint = SaveBestWeights(model_directory="./models", verbose=False)
     early_stopping = EarlyStopping(verbose=1, patience=config.PATIENCE)
-    wandb_logger = wandb.keras.WandbCallback()
+    wandb_logger = wandb.keras.WandbMetricsLogger()
 
     try:
         model_run.model.fit(
