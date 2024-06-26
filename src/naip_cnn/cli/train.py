@@ -105,7 +105,6 @@ def train_model(
     except KeyboardInterrupt:
         model_run.model.stop_training = True
         interrupted = True
-        print("\n\nTraining stopped manually.\n")
     else:
         interrupted = False
 
@@ -217,6 +216,20 @@ def train(
 
     # Train and save the model
     training_result = train_model(model_run, train, val)
+
+    if training_result.interrupted:
+        prompt = "\n\nTraining interrupted. Continue evaluating model? [Y/n]: "
+        if input(prompt).lower() == "n":
+            wandb.run.finish()
+
+            # There's a subtle difference between the run type returned by `wandb.init`
+            # and `wandb.Api().run`. Only the latter can be deleted programatically.
+            api_run = wandb.Api().run(run.path)
+            api_run.delete(delete_artifacts=True)
+
+            print("Run deleted.")
+            return
+
     wandb.log_model(training_result.model_run.save_model())
 
     # Evaluate the model
