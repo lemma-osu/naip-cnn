@@ -68,7 +68,7 @@ def load_model_run(wrapper) -> models.ModelRun:
     )
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=config.LEARN_RATE),
-        loss="mse",
+        loss=config.LOSS_FUNCTION,
         metrics=["mae", "mse", R2Score2D()],
         run_eagerly=False,
     )

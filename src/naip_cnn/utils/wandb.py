@@ -167,6 +167,7 @@ def _build_wandb_config(
                 "batch_size": batch_size,
                 "learning_rate": learn_rate,
                 "epochs": epochs,
+                "loss_function": model_run.model.loss,
             },
             "model": {
                 "architecture": model_run.model.name,
