@@ -211,9 +211,6 @@ def train(
         train_model(model_run, train.take(1), val.take(1))
         return
 
-    # Save the repository state as an artifact
-    wandb.run.log_code()
-
     # Train and save the model
     training_result = train_model(model_run, train, val)
 
@@ -230,7 +227,9 @@ def train(
             print("Run deleted.")
             return
 
-    wandb.log_model(training_result.model_run.save_model())
+    # Save the repository state and model as artifacts
+    wandb.run.log_code()
+    wandb.run.log_model(training_result.model_run.save_model())
 
     # Evaluate the model
     summary = evaluate_model(training_result, val)

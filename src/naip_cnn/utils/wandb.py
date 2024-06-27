@@ -89,7 +89,7 @@ def load_wandb_model_run(run_path: str) -> ModelRun:
     spacing = cfg["data"]["footprint"]["spacing"]
     lidar_res = cfg["data"]["lidar"]["resolution"]
     naip_res = cfg["data"]["imagery"]["resolution"]
-    acquisition_names = cfg["data"]["imagery"]["acquisitions"]
+    acquisition_names = cfg["data"]["lidar"]["acquisitions"]
     acquisitions = [Acquisition.from_name(name) for name in acquisition_names]
 
     dataset = NAIPDatasetWrapper(
@@ -197,12 +197,13 @@ def _build_wandb_config(
                 "imagery": {
                     "bands": "-".join(bands),
                     "resolution": dataset.naip_res,
-                    "acquisitions": [a.name for a in dataset.acquisitions],
+                    "years": [a.naip_year for a in dataset.acquisitions],
                 },
                 "lidar": {
                     "label": label,
                     "resolution": dataset.lidar_res,
                     "assets": dataset.lidar_assets,
+                    "acquisitions": [a.name for a in dataset.acquisitions],
                 },
             },
         }
