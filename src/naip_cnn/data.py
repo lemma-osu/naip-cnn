@@ -373,10 +373,16 @@ class NAIPTFRecord:
             .uint8()
         )
 
-    def export_to_drive(self, **kwargs):
+    def export_to_drive(self, mask: ee.Image = None, clip: ee.Feature = None, **kwargs):
         """Export the NAIP image to Google Drive."""
+        img = self.load_naip()
+        if mask is not None:
+            img = img.updateMask(mask)
+        if clip is not None:
+            img = img.clip(clip)
+
         task = ee.batch.Export.image.toDrive(
-            image=self.load_naip(),
+            image=img,
             description=self.name,
             region=self.bounds,
             scale=self.res,
@@ -410,9 +416,36 @@ class NAIPTFRecord:
     def n_batches(self, batch_size: int):
         return np.ceil((self.profile["width"] * self.profile["height"]) / batch_size)
 
+    def __len__(self) -> int:
+        """
+        Calculate the number of samples in the TFRecord dataset.
+
+        Note that this is a *very* slow process for large datasets.
+        """
+        tfrecords = list(TFRECORD_DIR.glob(f"{self.name}*.tfrecord.gz"))
+
+        # Iterating in batches is faster, but batch size doesn't seem to matter much.
+        data = tf.data.TFRecordDataset(tfrecords, compression_type="GZIP").batch(16)
+        return data.reduce(0, lambda acc, batch: acc + len(batch)).numpy()
+
     def load_dataset(self, bands: tuple[str] = BANDS) -> tf.data.Dataset:
         """Load and parse the TFRecord dataset."""
         tfrecords = list(TFRECORD_DIR.glob(f"{self.name}*.tfrecord.gz"))
+
+        # TFRecords are exported from Earth Engine with sequential numeric IDs. It's
+        # easy for a few files to get lost during the download and unzipping process,
+        # which will cause prediction to fail because the number of records won't match
+        # the shape described in the sidecar file. Try to catch that here.
+        tfrecord_ids = sorted(
+            [int(f.stem.split("-")[-1].split(".")[0]) for f in tfrecords]
+        )
+        missing_ids = set(range(tfrecord_ids[-1])) - set(tfrecord_ids)
+        if missing_ids:
+            msg = (
+                f"Expected at least {tfrecord_ids[-1] + 1} TFRecord files but found "
+                f"{len(tfrecords)}. Missing TFRecord IDs: {missing_ids}"
+            )
+            raise FileNotFoundError(msg)
 
         data = tf.data.TFRecordDataset(tfrecords, compression_type="GZIP")
         return data.map(lambda x: self._parse(x, bands=bands))
