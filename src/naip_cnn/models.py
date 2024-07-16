@@ -47,6 +47,7 @@ class ModelRun:
         year: int,
         batch_size: int = 256,
         filename: str | None = None,
+        apply_mask: bool = False,
         **kwargs,
     ):
         """Predict a label for each pixel in a NAIP image from a given year."""
@@ -56,6 +57,11 @@ class ModelRun:
             footprint=self.dataset.footprint,
             res=self.dataset.naip_res,
         )
+
+        # Ensure the mask file exists BEFORE running prediction
+        if apply_mask and not tfrecord.mask_path.exists():
+            msg = f"Expected a mask GeoTIFF at {tfrecord.mask_path} but found none."
+            raise ValueError(msg)
 
         image = tfrecord.load_dataset(bands=self.bands).batch(batch_size)
         raw_pred = self.model.predict(
@@ -68,6 +74,16 @@ class ModelRun:
             .reshape(h * self.dataset.lidar_shape[0], w * self.dataset.lidar_shape[1])
             .clip(min=0)
         )
+
+        if apply_mask:
+            with rasterio.open(tfrecord.mask_path) as src:
+                mask = src.read(1)
+
+                assert mask.shape == pred.shape, (
+                    f"Mask shape {mask.shape} does not match prediction shape"
+                    f" {pred.shape}."
+                )
+                pred[mask == 0] = 255
 
         # Optionally write out to geotiff
         if filename:

@@ -354,6 +354,7 @@ class NAIPTFRecord:
         )
 
         self.mixer_path = TFRECORD_DIR / f"{self.name}-mixer.json"
+        self.mask_path = TFRECORD_DIR / f"{self.name}-mask.tif"
 
     @property
     def naip_shape(self):
@@ -373,13 +374,50 @@ class NAIPTFRecord:
             .uint8()
         )
 
-    def export_to_drive(self, mask: ee.Image = None, clip: ee.Feature = None, **kwargs):
-        """Export the NAIP image to Google Drive."""
+    def export_to_drive(
+        self,
+        mask: ee.Image = None,
+        clip: ee.Feature = None,
+        export_mask: bool = False,
+        **kwargs,
+    ):
+        """
+        Export the NAIP image to Google Drive.
+
+        Parameters
+        ----------
+        mask : ee.Image
+            An optional image mask to apply to the NAIP image before exporting.
+        clip : ee.Feature
+            An optional feature to clip the NAIP image to before exporting.
+        export_mask : bool
+            If true, a GeoTIFF mask will be exported alongside the TFRecord.
+        kwargs : dict
+            Additional arguments to pass to `ee.batch.Export.image.toDrive`.
+
+        Returns
+        -------
+        ee.batch.Task
+            The started image export task.
+        """
         img = self.load_naip()
         if mask is not None:
             img = img.updateMask(mask)
         if clip is not None:
             img = img.clip(clip)
+
+        if export_mask:
+            mask_task = ee.batch.Export.image.toDrive(
+                image=img.select(0).mask().uint8(),
+                description=f"{self.name}_mask",
+                region=self.bounds,
+                # The mask will be at the output LiDAR resolution
+                scale=30,
+                fileFormat="GeoTIFF",
+                maxPixels=1e13,
+                **kwargs,
+            )
+            mask_task.start()
 
         task = ee.batch.Export.image.toDrive(
             image=img,

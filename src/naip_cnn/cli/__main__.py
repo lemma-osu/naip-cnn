@@ -17,14 +17,17 @@ def cli():
 @click.argument("dataset_id")
 @click.argument("year", type=int)
 @click.option("--batch-size", type=int, default=256)
-def predict_cmd(run_path: str, dataset_id: str, year: int, batch_size: int) -> None:
+@click.option("--apply-mask", is_flag=True)
+def predict_cmd(
+    run_path: str, dataset_id: str, year: int, batch_size: int, apply_mask: bool
+) -> None:
     """
     Predict on a dataset using a W&B run.
 
     This requires that a dataset with the given ID and year has already been saved to
     the project data directory in TFRecord format.
     """
-    path = predict(run_path, dataset_id, year, batch_size)
+    path = predict(run_path, dataset_id, year, batch_size, apply_mask=apply_mask)
     click.echo(f"Saved prediction to {path}")
 
 
