@@ -198,7 +198,9 @@ def _build_wandb_config(
                 "imagery": {
                     "bands": "-".join(bands),
                     "resolution": dataset.naip_res,
-                    "years": [a.naip_year for a in dataset.acquisitions],
+                    "years": sorted(
+                        list(set([a.naip_year for a in dataset.acquisitions]))
+                    ),
                 },
                 "lidar": {
                     "label": label,
