@@ -229,7 +229,7 @@ def train(
 
     # Save the repository state and model as artifacts
     wandb.run.log_code()
-    wandb.run.log_model(training_result.model_run.save_model())
+    wandb.run.log_model(training_result.model_run.save_model(), name="model")
 
     # Evaluate the model
     summary = evaluate_model(training_result, val)
