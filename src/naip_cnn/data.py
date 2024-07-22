@@ -409,7 +409,7 @@ class NAIPTFRecord:
         if export_mask:
             mask_task = ee.batch.Export.image.toDrive(
                 image=img.select(0).mask().uint8(),
-                description=f"{self.name}_mask",
+                description=f"{self.name}-mask",
                 region=self.bounds,
                 # The mask will be at the output LiDAR resolution
                 scale=30,
