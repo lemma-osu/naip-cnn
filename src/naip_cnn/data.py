@@ -415,6 +415,7 @@ class NAIPTFRecord:
                 scale=30,
                 fileFormat="GeoTIFF",
                 maxPixels=1e13,
+                crs=CRS,
                 **kwargs,
             )
             mask_task.start()
@@ -426,6 +427,7 @@ class NAIPTFRecord:
             scale=self.res,
             fileFormat="TFRecord",
             maxPixels=1e13,
+            crs=CRS,
             formatOptions={
                 "patchDimensions": self.naip_shape,
                 "compressed": True,
