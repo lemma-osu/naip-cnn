@@ -1,7 +1,7 @@
-from naip_cnn.utils.validation import count_duplicate_images
+from naip_cnn.data import count_duplicate_images
 
 
-def validate_data_split(dataset_name: str) -> None:
+def check_data_split(dataset_name: str) -> None:
     """Check a split set of data for duplicate images."""
     train_path = f"./data/training/{dataset_name}_train.h5"
     val_path = f"./data/training/{dataset_name}_val.h5"

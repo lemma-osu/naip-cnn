@@ -2,9 +2,9 @@ import click
 
 from naip_cnn.utils.wandb import compare_runs
 
+from .check import check_data_split
 from .predict import predict
 from .train import train
-from .validate import validate_data_split
 
 
 @click.group()
@@ -58,16 +58,16 @@ def train_cmd(allow_duplicate: bool, allow_cpu: bool, dry_run: bool, debug: bool
     )
 
 
-@cli.command(name="validate")
+@cli.command(name="check")
 @click.argument("dataset")
-def validate_cmd(dataset: str) -> None:
+def check_cmd(dataset: str) -> None:
     """
     Check for duplicate images in a split [DATASET].
 
     For example:
-    $ python -m src.naip_cnn.cli validate MAL2016_CanyonCreek-1-30-30x30-30
+    $ python -m src.naip_cnn.cli check MAL2016_CanyonCreek-1-30-30x30-30
     """
-    validate_data_split(dataset)
+    check_data_split(dataset)
 
 
 if __name__ == "__main__":
