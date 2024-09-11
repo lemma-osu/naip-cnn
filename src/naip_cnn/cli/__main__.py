@@ -5,6 +5,7 @@ from naip_cnn.utils.wandb import compare_runs
 from .check import check_data_split
 from .predict import predict
 from .train import train
+from .validate import validate
 
 
 @click.group()
@@ -68,6 +69,25 @@ def check_cmd(dataset: str) -> None:
     $ python -m src.naip_cnn.cli check MAL2016_CanyonCreek-1-30-30x30-30
     """
     check_data_split(dataset)
+
+
+@cli.command(name="validate")
+@click.argument("run_path")
+@click.argument("acquisition_name")
+@click.option("--batch-size", type=int, default=256)
+@click.option("--dry-run", is_flag=True)
+def validation_command(
+    run_path: str, acquisition_name: str, batch_size: int = 256, dry_run: bool = False
+):
+    """
+    Validate a model using a given validation dataset.
+    """
+    validate(
+        run_path,
+        acquisition_name=acquisition_name,
+        batch_size=batch_size,
+        dry_run=dry_run,
+    )
 
 
 if __name__ == "__main__":
