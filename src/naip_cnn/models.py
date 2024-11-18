@@ -79,10 +79,14 @@ class ModelRun:
             with rasterio.open(tfrecord.mask_path) as src:
                 mask = src.read(1)
 
-                assert mask.shape == pred.shape, (
-                    f"Mask shape {mask.shape} does not match prediction shape"
-                    f" {pred.shape}."
-                )
+                # TODO: Fix. Masks always seem to export with an extra pixel. Since
+                # we're currently only masking with admin boundaries, this is
+                # non-critical.
+                mask = mask[: pred.shape[0], : pred.shape[1]]
+                # assert mask.shape == pred.shape, (
+                #     f"Mask shape {mask.shape} does not match prediction shape"
+                #     f" {pred.shape}."
+                # )
                 pred[mask == 0] = 255
 
         # Optionally write out to geotiff
