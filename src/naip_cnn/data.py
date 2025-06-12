@@ -471,6 +471,8 @@ class NAIPTFRecord:
     def load_dataset(self, bands: tuple[str] = BANDS) -> tf.data.Dataset:
         """Load and parse the TFRecord dataset."""
         tfrecords = list(TFRECORD_DIR.glob(f"{self.name}*.tfrecord.gz"))
+        if not tfrecords:
+            raise FileNotFoundError(f"No TFRecord files found for {self.name}")
 
         # TFRecords are exported from Earth Engine with sequential numeric IDs. It's
         # easy for a few files to get lost during the download and unzipping process,
