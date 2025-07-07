@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -92,10 +94,16 @@ class ModelRun:
         # Optionally write out to geotiff
         if filename:
             pred_path = PRED_DIR / f"{filename}.tif"
-            pred_profile = tfrecord.profile.copy()
+            pred_profile = copy.deepcopy(tfrecord.profile)
 
-            pred_profile["transform"][0] = self.dataset.lidar_res
-            pred_profile["transform"][4] = self.dataset.lidar_res
+            # Match the sign of the pixel scale from the mixer
+            pred_profile["transform"][0] = math.copysign(
+                self.dataset.lidar_res, pred_profile["transform"][0]
+            )
+            pred_profile["transform"][4] = math.copysign(
+                self.dataset.lidar_res, pred_profile["transform"][4]
+            )
+
             pred_profile.update(
                 {
                     "width": pred.shape[1],
