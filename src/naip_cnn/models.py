@@ -195,25 +195,6 @@ def _encoder_block(
     return x, p
 
 
-def _decoder_block(x, conv_features, n_filters, regularization=None):
-    x = layers.Conv2DTranspose(n_filters, 3, 2, padding="same")(x)
-    x = layers.concatenate([x, conv_features])
-    x = layers.Conv2D(
-        n_filters,
-        3,
-        padding="same",
-        activation="relu",
-        kernel_regularizer=regularization,
-    )(x)
-    return layers.Conv2D(
-        n_filters,
-        3,
-        padding="same",
-        activation="relu",
-        kernel_regularizer=regularization,
-    )(x)
-
-
 def CNN_base(
     shape: tuple[int, int, int] = (150, 150, 4),
     out_shape=(5, 5),
@@ -302,63 +283,3 @@ def CNN_resized(
     outputs = layers.Reshape(out_shape)(x)
 
     return tf.keras.Model(inputs, outputs, name="CNN_resized")
-
-
-def UNet_base(
-    in_shape,
-    out_shape,
-    encoder_blocks=4,
-    max_filters=512,
-    dropout=0.3,
-    regularization=None,
-):
-    """A modified UNet with a configurable number of encoder blocks and a calculated
-    number of decoder blocks."""
-    if in_shape[0] < out_shape[0]:
-        raise ValueError("The output shape must be <= the input shape.")
-    # Calculate the image size after encoding
-    encoded_size = in_shape[0] / 2**encoder_blocks
-    if not encoded_size.is_integer():
-        raise ValueError("The input shape must be divisible by 2 ** encoder_blocks.")
-
-    # Calculate the number of decoder blocks to achieve the output shape
-    decoder_blocks = np.log2(out_shape[0] / encoded_size)
-    if not decoder_blocks.is_integer():
-        raise ValueError(
-            f"The output shape must be divisible by the encoded size ({encoded_size})."
-        )
-
-    # Calcuate the exponential of the first filter size
-    start_filter_exp = np.log2(max_filters) - encoder_blocks
-
-    inputs = x = tf.keras.layers.Input(shape=in_shape)
-
-    # Build the encoder blocks
-    encoders = []
-    for i in range(encoder_blocks):
-        filters = 2 ** (start_filter_exp + i)
-
-        encoder, pooling = _encoder_block(
-            x, filters, dropout=dropout, regularization=regularization
-        )
-        encoders.append(encoder)
-
-        x = pooling
-
-    # Bottleneck
-    bottleneck_filters = 2 ** (start_filter_exp + encoder_blocks)
-    x = layers.Conv2D(bottleneck_filters, 3, padding="same", activation="relu")(x)
-    x = layers.Conv2D(bottleneck_filters, 3, padding="same", activation="relu")(x)
-
-    # Build the decoder blocks
-    for i in range(int(decoder_blocks)):
-        filters = 2 ** (start_filter_exp + encoder_blocks - i)
-        x = _decoder_block(
-            x, encoders[-(i + 1)], filters, regularization=regularization
-        )
-
-    outputs = layers.Conv2D(
-        1, 1, activation="linear", kernel_regularizer=regularization
-    )(x)
-
-    return tf.keras.Model(inputs, outputs, name=UNet_base)
