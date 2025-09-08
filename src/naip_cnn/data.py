@@ -544,4 +544,4 @@ def count_duplicate_images(train_path, val_path, key: str = "image") -> int:
         "formats": train_image.shape[1] * [train_image.dtype],
     }
 
-    return np.intersect1d(val_image.view(val_dtype), train_image.view(train_dtype))
+    return len(np.intersect1d(val_image.view(val_dtype), train_image.view(train_dtype)))
