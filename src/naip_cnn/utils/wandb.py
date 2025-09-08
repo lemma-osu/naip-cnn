@@ -215,16 +215,16 @@ def _build_wandb_config(
 
 def _get_missing_keys(reference: dict, other: dict) -> set[str]:
     """Get the keys that are present in `reference` but missing from `other`."""
-    missing_keys = []
+    missing_keys = set()
 
     for key, value in reference.items():
         if key not in other:
-            missing_keys.append(key)
+            missing_keys.add(key)
 
         if isinstance(value, dict):
-            missing_keys += _get_missing_keys(value, other.get(key, {}))
+            missing_keys.update(_get_missing_keys(value, other.get(key, {})))
 
-    return set(missing_keys)
+    return missing_keys
 
 
 def _get_mismatched_keys(
