@@ -7,7 +7,6 @@ name = "naip_cnn"
 dynamic = ["version"]
 description = "Modeling forest attributes from aerial imagery using CNNs"
 readme = "README.md"
-license = ""
 requires-python = ">=3.8"
 authors = [
     { name = "Aaron Zuspan", email = "aaron.zuspan@oregonstate.edu" },
