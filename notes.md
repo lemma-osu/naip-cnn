@@ -14,7 +14,7 @@ Just do it once at the beginning and write to separate files. It's too easy to a
 
 Much faster training, but obviously requires more RAM. Same large dataset with and without caching of the training set: 5.6m/epoch vs. 11.8m/epoch.
 
-## Model Pameters
+## Model Parameters
 
 ### Resizing
 
