@@ -1,4 +1,9 @@
+# Bytecode
 *.pyc
-secrets/**
+
+# Data and model files
 data/**
 models/**
+
+# Local W&B cache
+wandb

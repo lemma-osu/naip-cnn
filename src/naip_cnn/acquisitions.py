@@ -9,11 +9,17 @@ class Acquisition:
     """A LiDAR aquisition with associated NAIP imagery in Earth Engine."""
 
     def __init__(
-        self, name: str, start_date: str, end_date: str, collection: str = None
+        self,
+        name: str,
+        start_date: str,
+        end_date: str,
+        naip_year: int,
+        collection: str = None,
     ):
         self.name = name
         self.start_date = start_date
         self.end_date = end_date
+        self.naip_year = naip_year
 
         asset_path = f"{collection}/{name}" if collection is not None else name
         self.lidar_asset = f"{config.EE_ASSET_DIR}/{asset_path}"
@@ -22,15 +28,15 @@ class Acquisition:
         return f"<Acquisition name={self.name}>"
 
     @property
-    def proj(self):
+    def proj(self) -> ee.Projection:
         return ee.Projection(config.CRS)
 
     @property
-    def geometry(self):
+    def geometry(self) -> ee.Geometry:
         return ee.Image(self.lidar_asset).geometry()
 
     @property
-    def mask(self):
+    def mask(self) -> ee.Image:
         """A mask of fast loss over the acqusition period."""
         return (
             ee.ImageCollection("USFS/GTAC/LCMS/v2022-8")
@@ -43,7 +49,7 @@ class Acquisition:
             .reproject(self.proj.atScale(30))
         )
 
-    def load_naip(self, scale: float = config.NAIP_RES):
+    def load_naip(self, scale: float = config.NAIP_RES) -> ee.Image:
         return (
             ee.ImageCollection("USDA/NAIP/DOQQ")
             .filterDate(self.start_date, self.end_date)
@@ -53,7 +59,7 @@ class Acquisition:
             .reproject(self.proj.atScale(scale))
         )
 
-    def load_lidar(self, scale: float = config.LIDAR_RES):
+    def load_lidar(self, scale: float = config.LIDAR_RES) -> ee.Image:
         return (
             ee.Image(self.lidar_asset)
             .updateMask(self.mask)
@@ -72,70 +78,82 @@ MAL2007 = Acquisition(
     start_date="2007-01-01",
     end_date="2009-12-31",
     collection="malheur_lidar",
+    naip_year=2009,
 )
 MAL2008_CampCreek = Acquisition(
     name="MAL2008_CampCreek",
     start_date="2008-01-01",
     end_date="2009-12-31",
     collection="malheur_lidar",
+    naip_year=2009,
 )
 MAL2008_2009_MalheurRiver = Acquisition(
     name="MAL2008_2009_MalheurRiver",
     start_date="2008-01-01",
     end_date="2009-12-31",
     collection="malheur_lidar",
+    naip_year=2009,
 )
 MAL2010 = Acquisition(
     name="MAL2010",
     start_date="2010-01-01",
     end_date="2011-12-31",
     collection="malheur_lidar",
+    naip_year=2011,
 )
 MAL2014 = Acquisition(
     name="MAL2014",
     start_date="2014-01-01",
     end_date="2014-12-31",
     collection="malheur_lidar",
+    naip_year=2014,
 )
 MAL2016_CanyonCreek = Acquisition(
     name="MAL2016_CanyonCreek",
     start_date="2016-01-01",
     end_date="2016-12-31",
     collection="malheur_lidar",
+    naip_year=2016,
 )
 MAL2017_Crow = Acquisition(
     name="MAL2017_Crow",
     start_date="2016-01-01",
     end_date="2017-12-31",
     collection="malheur_lidar",
+    naip_year=2016,
 )
 MAL2017_JohnDay = Acquisition(
     name="MAL2017_JohnDay",
     start_date="2016-01-01",
     end_date="2017-12-31",
     collection="malheur_lidar",
+    naip_year=2016,
 )
 MAL2018_Aldrich_UpperBear = Acquisition(
     name="MAL2018_Aldrich_UpperBear",
     start_date="2018-01-01",
     end_date="2020-12-31",
     collection="malheur_lidar",
+    naip_year=2020,
 )
 MAL2018_Rattlesnake = Acquisition(
     name="MAL2018_Rattlesnake",
     start_date="2018-01-01",
     end_date="2020-12-31",
     collection="malheur_lidar",
+    naip_year=2020,
 )
 MAL2019 = Acquisition(
     name="MAL2019",
     start_date="2019-01-01",
     end_date="2020-12-31",
     collection="malheur_lidar",
+    naip_year=2020,
 )
 MAL2020_UpperJohnDay = Acquisition(
     name="MAL2020_UpperJohnDay",
     start_date="2020-01-01",
     end_date="2020-12-31",
     collection="malheur_lidar",
+    naip_year=2020,
 )

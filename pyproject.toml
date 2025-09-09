@@ -7,7 +7,6 @@ name = "naip_cnn"
 dynamic = ["version"]
 description = "Modeling forest attributes from aerial imagery using CNNs"
 readme = "README.md"
-license = ""
 requires-python = ">=3.8"
 authors = [
     { name = "Aaron Zuspan", email = "aaron.zuspan@oregonstate.edu" },
@@ -28,10 +27,17 @@ dependencies = [
     "bokeh",
     "ipykernel",
     "pre-commit",
+    "wandb",
+    "tqdm",
+    "spyndex",
+    "click",
 ]
 
 [tool.hatch.version]
 path = "src/naip_cnn/__init__.py"
+
+[project.scripts]
+naip_cnn = "naip_cnn.cli:cli"
 
 [tool.ruff]
 target-version = "py38"
