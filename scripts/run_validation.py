@@ -34,6 +34,7 @@ validation_acquisitions = [
 if __name__ == "__main__":
     for run in runs:
         for acquisition in validation_acquisitions:
-            print(f"Validating {run} with {acquisition}")
-            metrics = validate(run, acquisition, dry_run=False)
-            print(metrics)
+            for split in ("validation", "test"):
+                print(f"Validating {run} {split} set with {acquisition}")
+                metrics = validate(run, acquisition, dry_run=False, split=split)
+                print(metrics)

@@ -1,3 +1,5 @@
+from typing import Literal
+
 import click
 
 from naip_cnn.utils.wandb import compare_runs
@@ -74,10 +76,17 @@ def check_cmd(dataset: str) -> None:
 @cli.command(name="validate")
 @click.argument("run_path")
 @click.argument("acquisition_name")
+@click.option(
+    "--split", type=click.Choice(["validation", "test"]), default="validation"
+)
 @click.option("--batch-size", type=int, default=256)
 @click.option("--dry-run", is_flag=True)
 def validation_command(
-    run_path: str, acquisition_name: str, batch_size: int = 256, dry_run: bool = False
+    run_path: str,
+    acquisition_name: str,
+    split: Literal["validation", "test"],
+    batch_size: int = 256,
+    dry_run: bool = False,
 ):
     """
     Validate a model using a given validation dataset.
@@ -85,6 +94,7 @@ def validation_command(
     validate(
         run_path,
         acquisition_name=acquisition_name,
+        split=split,
         batch_size=batch_size,
         dry_run=dry_run,
     )

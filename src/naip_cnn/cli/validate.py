@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 import tensorflow as tf
 
 import wandb
@@ -11,6 +13,7 @@ from naip_cnn.models import ModelRun
 def validate(
     run_path: str,
     acquisition_name: str,
+    split: Literal["validation", "test"],
     batch_size: int = 256,
     dry_run: bool = False,
 ) -> dict[str, float]:
@@ -23,6 +26,9 @@ def validate(
         The path to the W&B run to validate, e.g. "team/project/run_id".
     acquisition_name : str
         The name of the acquisition to use for validation.
+    split : Literal["validation", "test"]
+        The dataset split to evaluate. The key added to the W&B results will match the
+        chosen split.
     batch_size : int, default 256
         The batch size to use for validation.
     dry_run : bool, default False
@@ -60,8 +66,15 @@ def validate(
     veg_indices = [b for b in all_bands if b not in opt_bands]
     bands = [b for b in all_bands if b in opt_bands]
 
+    if split == "test":
+        loader = wrapper.load_test
+    elif split == "validation":
+        loader = wrapper.load_val
+    else:
+        raise ValueError(f"Unrecognized split option `{split}`.")
+
     val = (
-        wrapper.load_val(label=label, bands=bands, veg_indices=veg_indices)
+        loader(label=label, bands=bands, veg_indices=veg_indices)
         .cache()
         .batch(batch_size, drop_remainder=True)
         .prefetch(tf.data.AUTOTUNE)
@@ -84,9 +97,9 @@ def validate(
     # dict-like object for every nested dictionary in the summary, which causes issues
     # when updating. We need to convert each dict-like to a regular dict, and then let
     # wandb handle the conversion back to their dict-like when we update the run.
-    prev_validation = convert_nested_dict(run.summary.get("validation", {}))
+    prev_validation = convert_nested_dict(run.summary.get(split, {}))
     prev_validation[acquisition_name] = results
-    run.summary["validation"] = prev_validation
+    run.summary[split] = prev_validation
     run.update()
     print(f"Updated validation results for {run.name}")
     return results
