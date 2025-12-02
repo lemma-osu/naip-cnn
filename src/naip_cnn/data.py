@@ -427,6 +427,10 @@ class NAIPTFRecord:
             scale=self.res,
             fileFormat="TFRecord",
             maxPixels=1e13,
+            # Note that explicitly setting the CRS changes the output to north-up,
+            # compared to the south-up orientation of the training data. This isn't a
+            # problem as long we correct the orientation during inference.
+            # See https://github.com/lemma-osu/naip-cnn/issues/25
             crs=CRS,
             formatOptions={
                 "patchDimensions": self.naip_shape,
@@ -512,6 +516,25 @@ class NAIPTFRecord:
         features = {b: tf.io.FixedLenFeature(shape=[], dtype=tf.string) for b in bands}
         example = tf.io.parse_single_example(serialized_example, features)
         image = tf.stack([decode_band(example[b]) for b in bands], axis=-1)
+
+        # Training data was extracted with NAIP imagery oriented south-up (positive
+        # pixel height). To avoid domain shift during inference, ensure that the
+        # TFRecord imagery is oriented the same way based on the affine transform.
+        # See https://github.com/lemma-osu/naip-cnn/issues/25
+        # Note that GEE affine transform matrices are stored as [a b c d e f] compared
+        # to the GDAL convention of [c a b f d e] or shapely [a b d e c f] where:
+        # a = pixel width
+        # b = row rotation (typically zero)
+        # c = x-coordinate of upper-left pixel
+        # d = column rotation (typically zero)
+        # e = pixel height (typically negative)
+        # f = y-coordinate of upper-left pixel
+        # Also see https://gdal.org/en/stable/tutorials/geotransforms_tut.html
+        if self.profile["transform"][4] < 0:
+            image = tf.image.flip_up_down(image)
+        # This could theoretically happen in the x-direction as well.
+        if self.profile["transform"][0] < 0:
+            image = tf.image.flip_left_right(image)
 
         return tf.expand_dims(image, axis=-1)
 
