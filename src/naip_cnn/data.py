@@ -525,10 +525,10 @@ class NAIPTFRecord:
         # to the GDAL convention of [c a b f d e] or shapely [a b d e c f] where:
         # a = pixel width
         # b = row rotation (typically zero)
-        # c = x-coordinate of upper-left pixel
+        # c = x-coordinate of the origin pixel
         # d = column rotation (typically zero)
         # e = pixel height (typically negative)
-        # f = y-coordinate of upper-left pixel
+        # f = y-coordinate of the origin pixel
         # Also see https://gdal.org/en/stable/tutorials/geotransforms_tut.html
         if self.profile["transform"][4] < 0:
             image = tf.image.flip_up_down(image)
