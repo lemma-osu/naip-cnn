@@ -7,14 +7,14 @@ name = "naip_cnn"
 dynamic = ["version"]
 description = "Modeling forest attributes from aerial imagery using CNNs"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 authors = [
     { name = "Aaron Zuspan", email = "aaron.zuspan@oregonstate.edu" },
     { name = "Adam Sibley", email = "adam.sibley@oregonstate.edu" }
 ]
 dependencies = [
-    "tensorflow",
-    "tensorflow-io",
+    "tensorflow[and-cuda]==2.16.2", # Last supported version with tensorflow-io
+    "tensorflow-io==0.37.1",
     "earthengine-api",
     "rasterio",
     "scikit-learn",
@@ -25,6 +25,7 @@ dependencies = [
     "h5py",
     "dask[distributed]",
     "bokeh",
+    "ipython",
     "ipykernel",
     "pre-commit",
     "wandb",
@@ -40,7 +41,6 @@ path = "src/naip_cnn/__init__.py"
 naip_cnn = "naip_cnn.cli:cli"
 
 [tool.ruff]
-target-version = "py38"
 select = ["E", "I", "F", "B", "FA", "UP", "ISC", "PT", "NPY", "Q", "RET", "SIM", "PERF"]
 fix = true
 show-fixes = true
