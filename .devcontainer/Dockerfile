@@ -18,7 +18,7 @@ COPY . /workspaces/naip-cnn
 
 # Install dependencies with uv such that they're available on the path
 ENV UV_PROJECT_ENVIRONMENT=/usr/local
-RUN uv sync && \
+RUN uv sync --locked && \
     pip freeze
 
 # Set up global IPython configuration for the devcontainer
