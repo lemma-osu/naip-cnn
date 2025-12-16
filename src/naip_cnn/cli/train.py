@@ -210,7 +210,9 @@ def train(
 
     if debug:
         tf.debugging.disable_traceback_filtering()
-        train_model(model_run, train.take(1), val.take(1))
+        training_result = train_model(model_run, train.take(1), val.take(1))
+        summary = evaluate_model(training_result, val.take(1))
+        print("Run summary: ", summary)
         return
 
     # Train and save the model
