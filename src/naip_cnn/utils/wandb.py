@@ -11,7 +11,7 @@ import tensorflow as tf
 import wandb
 from naip_cnn.acquisitions import Acquisition
 from naip_cnn.augment import Augment
-from naip_cnn.config import WANDB_PROJECT
+from naip_cnn.config import MODEL_VERSION, WANDB_PROJECT
 from naip_cnn.data import NAIPDatasetWrapper
 from naip_cnn.models import ModelRun
 

@@ -41,9 +41,11 @@ path = "src/naip_cnn/__init__.py"
 naip_cnn = "naip_cnn.cli:cli"
 
 [tool.ruff]
-select = ["E", "I", "F", "B", "FA", "UP", "ISC", "PT", "NPY", "Q", "RET", "SIM", "PERF"]
 fix = true
 show-fixes = true
 
-[tool.ruff.isort]
+[tool.ruff.lint]
+select = ["E", "I", "F", "B", "FA", "UP", "ISC", "PT", "NPY", "Q", "RET", "SIM", "PERF"]
+
+[tool.ruff.lint.isort]
 known-first-party = ["naip_cnn"]

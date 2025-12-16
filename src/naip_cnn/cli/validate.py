@@ -81,7 +81,7 @@ def validate(
     )
 
     metric_vals = model_run.model.evaluate(val)
-    results = dict(zip(model_run.model.metrics_names, metric_vals))
+    results = dict(zip(model_run.model.metrics_names, metric_vals, strict=True))
 
     if dry_run:
         print(results)

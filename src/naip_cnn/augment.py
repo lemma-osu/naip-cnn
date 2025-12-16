@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Tuple, TypeVar
+from typing import TypeVar
 
 import tensorflow as tf
 
-TensorPair = Tuple[tf.Tensor, tf.Tensor]
+TensorPair = tuple[tf.Tensor, tf.Tensor]
 
 
 class AugmentFunction(ABC):

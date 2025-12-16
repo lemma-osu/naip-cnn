@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Callable
 
 import ee
 import h5py
@@ -262,7 +262,8 @@ class NAIPDatasetWrapper:
 
     @property
     def suffix(self) -> str:
-        """Name suffix that describes metadata about how the acquisitions were sampled.
+        """
+        Name suffix that describes metadata about how the acquisitions were sampled.
         """
         footprint_str = f"{self.footprint[0]}x{self.footprint[1]}"
         naip_res_str = float_to_str(self.naip_res)
@@ -457,8 +458,10 @@ class NAIPTFRecord:
             "transform": mixer["projection"]["affine"]["doubleMatrix"],
         }
 
-    def n_batches(self, batch_size: int):
-        return np.ceil((self.profile["width"] * self.profile["height"]) / batch_size)
+    def n_batches(self, batch_size: int) -> int:
+        return int(
+            np.ceil((self.profile["width"] * self.profile["height"]) / batch_size)
+        )
 
     def __len__(self) -> int:
         """

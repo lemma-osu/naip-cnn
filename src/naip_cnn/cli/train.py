@@ -127,7 +127,7 @@ def evaluate_model(training_result: TrainingResult, val: tf.data.Dataset) -> dic
     }
 
     for metric, value in zip(
-        training_result.model_run.model.metrics_names, metric_vals
+        training_result.model_run.model.metrics_names, metric_vals, strict=True
     ):
         # Prefix all metrics with "final/" to differentiate them from epoch metrics
         metrics[f"final/{metric}"] = value
