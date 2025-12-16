@@ -5,10 +5,9 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
+import keras
 import numpy as np
 import rasterio
-import tensorflow as tf
-from tensorflow.keras import layers
 
 from naip_cnn.config import MODEL_DIR, PRED_DIR
 from naip_cnn.data import NAIPDatasetWrapper, NAIPTFRecord
@@ -18,7 +17,7 @@ from naip_cnn.data import NAIPDatasetWrapper, NAIPTFRecord
 class ModelRun:
     """A model run with associated model, dataset, and parameters."""
 
-    model: tf.keras.Model
+    model: keras.Model
     model_params: dict
     dataset: NAIPDatasetWrapper
     label: str
@@ -36,7 +35,7 @@ class ModelRun:
 
         if "regularization" in self.model_params:
             # Serialize the regularization function
-            self.model_params["regularization"] = tf.keras.regularizers.serialize(
+            self.model_params["regularization"] = keras.regularizers.serialize(
                 self.model_params["regularization"]
             )
 
@@ -145,9 +144,9 @@ def CNN_original(
     """Original model by Adam Sibley."""
     kernel_size = (kernel_dim, kernel_dim, 4)
 
-    return tf.keras.models.Sequential(
+    return keras.models.Sequential(
         [
-            layers.Conv3D(
+            keras.layers.Conv3D(
                 filters=filter_no,
                 kernel_size=kernel_size,
                 input_shape=(*shape, 1),
@@ -155,12 +154,12 @@ def CNN_original(
                 activation="relu",
                 use_bias=True,
             ),
-            layers.Flatten(),
-            layers.Dense(Dense1_no, activation="relu"),
-            layers.Dropout(0.4),
-            layers.Dense(Dense2_no, activation="relu"),
-            layers.Dropout(0.4),
-            layers.Dense(units=1, activation="linear"),
+            keras.layers.Flatten(),
+            keras.layers.Dense(Dense1_no, activation="relu"),
+            keras.layers.Dropout(0.4),
+            keras.layers.Dense(Dense2_no, activation="relu"),
+            keras.layers.Dropout(0.4),
+            keras.layers.Dense(units=1, activation="linear"),
         ],
         name="CNN_original",
     )
@@ -178,7 +177,7 @@ def _encoder_block(
     **kwargs,
 ):
     for _ in range(convolutions_per_block):
-        x = layers.Conv2D(
+        x = keras.layers.Conv2D(
             n_filters,
             filter_size,
             padding="same",
@@ -187,10 +186,10 @@ def _encoder_block(
             **kwargs,
         )(x)
 
-    p = layers.MaxPool2D(pool_size)(x)
+    p = keras.layers.MaxPool2D(pool_size)(x)
 
     if dropout is not None:
-        p = layers.Dropout(dropout)(p)
+        p = keras.layers.Dropout(dropout)(p)
 
     return x, p
 
@@ -209,7 +208,7 @@ def CNN_base(
     **kwargs,
 ):
     """A simple, configurable CNN model."""
-    inputs = x = tf.keras.layers.Input(shape=shape)
+    inputs = x = keras.layers.Input(shape=shape)
 
     # Build the encoder blocks
     for i in range(encoder_blocks):
@@ -228,12 +227,12 @@ def CNN_base(
         )
 
     # Build the flatten and dense output layers
-    x = layers.Flatten()(x)
-    x = layers.Dense(units=out_shape[0] * out_shape[1], activation="linear")(x)
+    x = keras.layers.Flatten()(x)
+    x = keras.layers.Dense(units=out_shape[0] * out_shape[1], activation="linear")(x)
 
-    outputs = layers.Reshape(out_shape)(x)
+    outputs = keras.layers.Reshape(out_shape)(x)
 
-    return tf.keras.Model(inputs, outputs, name="CNN_base")
+    return keras.Model(inputs, outputs, name="CNN_base")
 
 
 def CNN_resized(
@@ -256,9 +255,9 @@ def CNN_resized(
     This addition was based on the fact that the 1m NAIP resampled to 0.6m seemed to
     perform better.
     """
-    inputs = x = tf.keras.layers.Input(shape=shape)
+    inputs = x = keras.layers.Input(shape=shape)
 
-    x = layers.Resizing(*resize_shape)(x)
+    x = keras.layers.Resizing(*resize_shape)(x)
 
     # Build the encoder blocks
     for i in range(encoder_blocks):
@@ -277,9 +276,9 @@ def CNN_resized(
         )
 
     # Build the flatten and dense output layers
-    x = layers.Flatten()(x)
-    x = layers.Dense(units=out_shape[0] * out_shape[1], activation="linear")(x)
+    x = keras.layers.Flatten()(x)
+    x = keras.layers.Dense(units=out_shape[0] * out_shape[1], activation="linear")(x)
 
-    outputs = layers.Reshape(out_shape)(x)
+    outputs = keras.layers.Reshape(out_shape)(x)
 
-    return tf.keras.Model(inputs, outputs, name="CNN_resized")
+    return keras.Model(inputs, outputs, name="CNN_resized")

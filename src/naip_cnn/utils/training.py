@@ -2,7 +2,7 @@ from pathlib import Path
 from warnings import warn
 
 import tensorflow as tf
-from tensorflow.keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint
 
 
 class R2Score2D(tf.metrics.R2Score):

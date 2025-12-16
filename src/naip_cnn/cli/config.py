@@ -1,4 +1,4 @@
-import tensorflow as tf
+import keras
 
 from naip_cnn import models
 
@@ -33,7 +33,7 @@ MODEL_PARAMS = dict(
     pool_size=(2, 2),
     dropout=0.3,
     dilation_rate=(1, 1),
-    regularization=tf.keras.regularizers.l2(),
+    regularization=keras.regularizers.l2(),
     activation="relu",
 )
 

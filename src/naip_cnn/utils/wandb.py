@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import tensorflow as tf
+import keras
 
 import wandb
 from naip_cnn.acquisitions import Acquisition
@@ -60,7 +60,7 @@ class ConfigDict(dict):
         return True
 
 
-def load_wandb_model(run_path: str) -> tf.keras.Model:
+def load_wandb_model(run_path: str) -> keras.Model:
     """Load a model logged with a W&B run."""
     run = wandb.Api().run(run_path)
 
@@ -76,7 +76,7 @@ def load_wandb_model(run_path: str) -> tf.keras.Model:
         model_dir = Path(model_artifacts[0].download(root=tmpdir))
         # Download returns a directory with one model file
         model_path = next(model_dir.glob("*.keras"))
-        return tf.keras.models.load_model(model_path)
+        return keras.models.load_model(model_path)
 
 
 def load_wandb_model_run(run_path: str) -> ModelRun:

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import keras
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping
 
 import naip_cnn.config as proj_config
 import wandb
@@ -68,7 +69,7 @@ def load_model_run(wrapper) -> models.ModelRun:
         **config.MODEL_PARAMS,
     )
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=config.LEARN_RATE),
+        optimizer=keras.optimizers.Adam(learning_rate=config.LEARN_RATE),
         loss=config.LOSS_FUNCTION,
         metrics=["mae", "mse", R2Score2D()],
         run_eagerly=False,
