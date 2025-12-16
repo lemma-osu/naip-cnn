@@ -2,13 +2,6 @@ from typing import Literal
 
 import click
 
-from naip_cnn.utils.wandb import compare_runs
-
-from .check import check_data_split
-from .predict import predict
-from .train import train
-from .validate import validate
-
 
 @click.group()
 def cli():
@@ -30,6 +23,8 @@ def predict_cmd(
     This requires that a dataset with the given ID and year has already been saved to
     the project data directory in TFRecord format.
     """
+    from .predict import predict
+
     path = predict(run_path, dataset_id, year, batch_size, apply_mask=apply_mask)
     click.echo(f"Saved prediction to {path}")
 
@@ -39,6 +34,8 @@ def predict_cmd(
 @click.argument("other_path")
 def compare_cmd(run_path: str, other_path: str) -> None:
     """Compare the configuration of two W&B runs."""
+    from naip_cnn.utils.wandb import compare_runs
+
     compare_runs(run_path, other_path)
 
 
@@ -53,6 +50,8 @@ def compare_cmd(run_path: str, other_path: str) -> None:
 @click.option("--debug", is_flag=True, help="Train a test model without W&B logging.")
 def train_cmd(allow_duplicate: bool, allow_cpu: bool, dry_run: bool, debug: bool):
     """Train a new model and log it to W&B."""
+    from .train import train
+
     train(
         allow_duplicate=allow_duplicate,
         allow_cpu=allow_cpu,
@@ -70,6 +69,8 @@ def check_cmd(dataset: str) -> None:
     For example:
     $ python -m src.naip_cnn.cli check MAL2016_CanyonCreek-1-30-30x30-30
     """
+    from .check import check_data_split
+
     check_data_split(dataset)
 
 
@@ -91,6 +92,8 @@ def validation_command(
     """
     Validate a model using a given validation dataset.
     """
+    from .validate import validate
+
     validate(
         run_path,
         acquisition_name=acquisition_name,
