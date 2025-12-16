@@ -1,10 +1,12 @@
 from pathlib import Path
 from warnings import warn
 
+import keras
 import tensorflow as tf
 from keras.callbacks import ModelCheckpoint
 
 
+@keras.utils.register_keras_serializable()
 class R2Score2D(tf.metrics.R2Score):
     """An R2Score metric that accepts batched 2D inputs."""
 

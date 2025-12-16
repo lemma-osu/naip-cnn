@@ -14,6 +14,7 @@ from naip_cnn.augment import Augment
 from naip_cnn.config import MODEL_VERSION, WANDB_PROJECT
 from naip_cnn.data import NAIPDatasetWrapper
 from naip_cnn.models import ModelRun
+from naip_cnn.utils.training import R2Score2D
 
 WandBRun = wandb.apis.public.runs.Run
 
@@ -76,7 +77,15 @@ def load_wandb_model(run_path: str) -> keras.Model:
         model_dir = Path(model_artifacts[0].download(root=tmpdir))
         # Download returns a directory with one model file
         model_path = next(model_dir.glob("*.keras"))
-        return keras.models.load_model(model_path)
+        return keras.models.load_model(
+            model_path,
+            custom_objects={
+                # For backwards compatibility with older models where the metric was
+                # serialized by name only, rather than using
+                # `keras.utils.register_keras_serializable`.
+                "R2Score2D": R2Score2D,
+            },
+        )
 
 
 def load_wandb_model_run(run_path: str) -> ModelRun:
