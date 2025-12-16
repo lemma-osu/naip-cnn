@@ -120,24 +120,20 @@ def train_model(
 def evaluate_model(training_result: TrainingResult, val: tf.data.Dataset) -> dict:
     y_pred = training_result.model_run.model.predict(val)
     y_true = np.concatenate([data[1] for data in val.as_numpy_iterator()])
-    metric_vals = training_result.model_run.model.evaluate(val)
+    metrics = training_result.model_run.model.evaluate(val, return_dict=True)
 
-    metrics = {
+    summary = {
+        # Prefix all metrics with "final/" to differentiate them from epoch metrics
+        **{f"final/{metric}": value for metric, value in metrics.items()},
         "best_epoch": training_result.best_epoch,
         "stopped_epoch": training_result.stopped_epoch,
     }
-
-    for metric, value in zip(
-        training_result.model_run.model.metrics_names, metric_vals, strict=True
-    ):
-        # Prefix all metrics with "final/" to differentiate them from epoch metrics
-        metrics[f"final/{metric}"] = value
 
     # Create evaluation figures
     log_correlation_scatterplot(y_true, y_pred)
     log_distribution_histogram(y_true, y_pred)
 
-    return metrics
+    return summary
 
 
 def log_distribution_histogram(y_true, y_pred):

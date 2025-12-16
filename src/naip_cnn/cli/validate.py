@@ -80,8 +80,7 @@ def validate(
         .prefetch(tf.data.AUTOTUNE)
     )
 
-    metric_vals = model_run.model.evaluate(val)
-    results = dict(zip(model_run.model.metrics_names, metric_vals, strict=True))
+    results = model_run.model.evaluate(val, return_dict=True)
 
     if dry_run:
         print(results)
