@@ -35,7 +35,7 @@ class SaveBestWeights(ModelCheckpoint):
         self._current_epoch = 0
 
         super().__init__(
-            filepath=Path(model_directory) / ".best_weights.h5",
+            filepath=Path(model_directory) / ".weights.h5",
             save_best_only=True,
             save_weights_only=True,
             **kwargs,
