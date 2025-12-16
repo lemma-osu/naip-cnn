@@ -64,7 +64,11 @@ def load_wandb_model(run_path: str) -> tf.keras.Model:
     """Load a model logged with a W&B run."""
     run = wandb.Api().run(run_path)
 
-    model_artifacts = [a for a in run.logged_artifacts() if a.type == "model"]
+    model_artifacts = [
+        a
+        for a in run.logged_artifacts()
+        if a.type == "model" and MODEL_VERSION in a.aliases
+    ]
     if len(model_artifacts) != 1:
         raise ValueError(f"Expected one model artifact, found {len(model_artifacts)}")
 

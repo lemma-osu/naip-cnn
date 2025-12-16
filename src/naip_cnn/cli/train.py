@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 
+import naip_cnn.config as proj_config
 import wandb
 from naip_cnn import models
 from naip_cnn.acquisitions import Acquisition
@@ -229,7 +230,11 @@ def train(
 
     # Save the repository state and model as artifacts
     wandb.run.log_code()
-    wandb.run.log_model(training_result.model_run.save_model(), name="model")
+    wandb.run.log_model(
+        training_result.model_run.save_model(),
+        name=f"{wandb.run.name}_model",
+        aliases=[proj_config.MODEL_VERSION],
+    )
 
     # Evaluate the model
     summary = evaluate_model(training_result, val)
