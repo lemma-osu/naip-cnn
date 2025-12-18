@@ -7,7 +7,7 @@ from keras.callbacks import ModelCheckpoint
 
 
 @keras.utils.register_keras_serializable()
-class R2Score2D(tf.metrics.R2Score):
+class R2Score2D(keras.metrics.R2Score):
     """An R2Score metric that accepts batched 2D inputs."""
 
     def update_state(self, y_true, y_pred, sample_weight=None):
