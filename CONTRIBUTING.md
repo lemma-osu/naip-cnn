@@ -18,16 +18,30 @@ Docker is the recommended solution for running this project, as GPU installation
 
 ### Without Docker
 
-If you do not want to use Docker, you can follow [this guide](https://www.tensorflow.org/install/pip) and then use `pip install -e .` to install the required packages.
+If you do not want to use Docker, you can clone the repository and install dependencies using [uv](https://docs.astral.sh/uv/) with `uv sync --locked`, then install pre-commit hooks with `uv run pre-commit install`. Commands run in the virtual environment must be prefixed with `uv run`, e.g. `uv run naip_cnn --help`.
 
-### Checking Your Setup
+### Checking GPU Support
 
-Once your environment is setup, you can check that Tensorflow is working and GPU support is enabled by running by running the code below:
+Once your environment is setup, you can check that Tensorflow is working and detecting your GPU by running the command below in your container (directly) or virtual environment (prefixed with `uv run`):
 
-```python
-import tensorflow as tf
-
-assert tf.config.list_physical_devices('GPU')
+```bash
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
-If you have multiple GPUs and want to use a specific one, you can set the `CUDA_VISIBLE_DEVICES` environment variable to the index of the GPU you want to use, e.g. `export CUDA_VISIBLE_DEVICES=0` for the first GPU.
+If a GPU is detected, you should see output similar to:
+
+```
+[PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU')]
+```
+
+If you need to select from multiple GPUs, you can set the `CUDA_VISIBLE_DEVICES` environment variable to the index of the GPU you want to use, e.g. `export CUDA_VISIBLE_DEVICES=0` for the first GPU.
+
+## Development
+
+### Linting and Formatting
+
+This project uses `ruff` for linting and formatting via [pre-commit hooks](https://pre-commit.com/). To run hooks manually, use `pre-commit run --all-files`.
+
+### The Lockfile
+
+This project uses `uv` to manage dependencies, with an automatically generated and version-controlled [lockfile](https://docs.astral.sh/uv/concepts/projects/layout/#the-lockfile) for reproducibility. The lockfile maintains a known working set of dependency versions, and should only be updated when dependencies are added, removed, or upgraded. If the project cannot be installed on your system using `uv sync --locked` due to a platform incompatibility, please open [an issue](https://github.com/lemma-osu/naip-cnn/issues).
