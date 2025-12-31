@@ -6,14 +6,15 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-import tensorflow as tf
+import keras
 
 import wandb
 from naip_cnn.acquisitions import Acquisition
 from naip_cnn.augment import Augment
-from naip_cnn.config import WANDB_PROJECT
+from naip_cnn.config import MODEL_VERSION, WANDB_PROJECT
 from naip_cnn.data import NAIPDatasetWrapper
 from naip_cnn.models import ModelRun
+from naip_cnn.utils.training import R2Score2D
 
 WandBRun = wandb.apis.public.runs.Run
 
@@ -60,11 +61,15 @@ class ConfigDict(dict):
         return True
 
 
-def load_wandb_model(run_path: str) -> tf.keras.Model:
+def load_wandb_model(run_path: str) -> keras.Model:
     """Load a model logged with a W&B run."""
     run = wandb.Api().run(run_path)
 
-    model_artifacts = [a for a in run.logged_artifacts() if a.type == "model"]
+    model_artifacts = [
+        a
+        for a in run.logged_artifacts()
+        if a.type == "model" and MODEL_VERSION in a.aliases
+    ]
     if len(model_artifacts) != 1:
         raise ValueError(f"Expected one model artifact, found {len(model_artifacts)}")
 
@@ -72,7 +77,15 @@ def load_wandb_model(run_path: str) -> tf.keras.Model:
         model_dir = Path(model_artifacts[0].download(root=tmpdir))
         # Download returns a directory with one model file
         model_path = next(model_dir.glob("*.keras"))
-        return tf.keras.models.load_model(model_path)
+        return keras.models.load_model(
+            model_path,
+            custom_objects={
+                # For backwards compatibility with older models where the metric was
+                # serialized by name only, rather than using
+                # `keras.utils.register_keras_serializable`.
+                "R2Score2D": R2Score2D,
+            },
+        )
 
 
 def load_wandb_model_run(run_path: str) -> ModelRun:

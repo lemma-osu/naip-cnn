@@ -1,11 +1,13 @@
 from pathlib import Path
 from warnings import warn
 
+import keras
 import tensorflow as tf
-from tensorflow.keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint
 
 
-class R2Score2D(tf.metrics.R2Score):
+@keras.utils.register_keras_serializable()
+class R2Score2D(keras.metrics.R2Score):
     """An R2Score metric that accepts batched 2D inputs."""
 
     def update_state(self, y_true, y_pred, sample_weight=None):
@@ -35,7 +37,7 @@ class SaveBestWeights(ModelCheckpoint):
         self._current_epoch = 0
 
         super().__init__(
-            filepath=Path(model_directory) / ".best_weights.h5",
+            filepath=Path(model_directory) / ".weights.h5",
             save_best_only=True,
             save_weights_only=True,
             **kwargs,

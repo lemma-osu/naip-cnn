@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import keras
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping
 
+import naip_cnn.config as proj_config
 import wandb
 from naip_cnn import models
 from naip_cnn.acquisitions import Acquisition
@@ -67,7 +69,7 @@ def load_model_run(wrapper) -> models.ModelRun:
         **config.MODEL_PARAMS,
     )
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=config.LEARN_RATE),
+        optimizer=keras.optimizers.Adam(learning_rate=config.LEARN_RATE),
         loss=config.LOSS_FUNCTION,
         metrics=["mae", "mse", R2Score2D()],
         run_eagerly=False,
@@ -118,24 +120,20 @@ def train_model(
 def evaluate_model(training_result: TrainingResult, val: tf.data.Dataset) -> dict:
     y_pred = training_result.model_run.model.predict(val)
     y_true = np.concatenate([data[1] for data in val.as_numpy_iterator()])
-    metric_vals = training_result.model_run.model.evaluate(val)
+    metrics = training_result.model_run.model.evaluate(val, return_dict=True)
 
-    metrics = {
+    summary = {
+        # Prefix all metrics with "final/" to differentiate them from epoch metrics
+        **{f"final/{metric}": value for metric, value in metrics.items()},
         "best_epoch": training_result.best_epoch,
         "stopped_epoch": training_result.stopped_epoch,
     }
-
-    for metric, value in zip(
-        training_result.model_run.model.metrics_names, metric_vals
-    ):
-        # Prefix all metrics with "final/" to differentiate them from epoch metrics
-        metrics[f"final/{metric}"] = value
 
     # Create evaluation figures
     log_correlation_scatterplot(y_true, y_pred)
     log_distribution_histogram(y_true, y_pred)
 
-    return metrics
+    return summary
 
 
 def log_distribution_histogram(y_true, y_pred):
@@ -208,7 +206,9 @@ def train(
 
     if debug:
         tf.debugging.disable_traceback_filtering()
-        train_model(model_run, train.take(1), val.take(1))
+        training_result = train_model(model_run, train.take(1), val.take(1))
+        summary = evaluate_model(training_result, val.take(1))
+        print("Run summary: ", summary)
         return
 
     # Train and save the model
@@ -229,7 +229,11 @@ def train(
 
     # Save the repository state and model as artifacts
     wandb.run.log_code()
-    wandb.run.log_model(training_result.model_run.save_model(), name="model")
+    wandb.run.log_model(
+        training_result.model_run.save_model(),
+        name=f"{wandb.run.name}_model",
+        aliases=[proj_config.MODEL_VERSION],
+    )
 
     # Evaluate the model
     summary = evaluate_model(training_result, val)

@@ -1,7 +1,7 @@
 """
-This script converts single-band LiDAR rasters to multiband rasters which can be 
-ingested into Earth Engine prior to sampling. After running this script, the generated 
-rasters should be uploaded manually to Earth Engine, and 
+This script converts single-band LiDAR rasters to multiband rasters which can be
+ingested into Earth Engine prior to sampling. After running this script, the generated
+rasters should be uploaded manually to Earth Engine, and
 `scripts/collect_lidar_assets.js` should be run in the Code Editor.
 """
 

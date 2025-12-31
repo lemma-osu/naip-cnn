@@ -47,3 +47,8 @@ LIDAR_RES = 30.0
 # The name of the Weights and Biases project where results are logged
 WANDB_PROJECT = "naip-cnn"
 WANDB_PATH = f"aazuspan-team/{WANDB_PROJECT}"
+
+# The model version used to identify the compatible Tensorflow format. This is
+# recorded as an artifact alias in Weights & Biases during training, and used to
+# retrieve the correct model during prediction.
+MODEL_VERSION = "2.16.2.keras"
