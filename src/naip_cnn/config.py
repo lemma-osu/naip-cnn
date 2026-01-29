@@ -36,6 +36,11 @@ CRS = (
     'AXIS["Y",NORTH]]'
 )
 
+# Base geotransform for GEE exports. The origin and pixel size may need to be adjusted
+# depending on the dataset and region.
+BASE_TRANSFORM = (1.0, 0.0, 0.0, 0.0, -1.0, 0.0)
+GRID_SNAP = 30  # Snap grid size in meters for aligning exports
+
 # The NAIP bands stored during sampling. Subsets of these bands may be used during
 # training, but all bands will be present in the datasets.
 BANDS = ("R", "G", "B", "N")

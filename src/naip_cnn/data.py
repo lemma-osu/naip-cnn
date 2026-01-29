@@ -15,8 +15,17 @@ import tensorflow_io as tfio
 
 from naip_cnn.acquisitions import Acquisition
 from naip_cnn.augment import Augment
-from naip_cnn.config import BANDS, CRS, NAIP_RES, TFRECORD_DIR, TRAIN_DIR
+from naip_cnn.config import (
+    BANDS,
+    BASE_TRANSFORM,
+    CRS,
+    GRID_SNAP,
+    NAIP_RES,
+    TFRECORD_DIR,
+    TRAIN_DIR,
+)
 from naip_cnn.utils.parsing import float_to_str, str_to_float
+from naip_cnn.utils.transform import compose_transform, compute_snapped_origin
 
 
 class _HDF5DatasetMixin:
@@ -407,16 +416,26 @@ class NAIPTFRecord:
         if clip is not None:
             img = img.clip(clip)
 
+        snapped_origin = compute_snapped_origin(
+            region=self.bounds,
+            snap_size=GRID_SNAP,
+            proj=ee.Projection(CRS),
+        )
+
         if export_mask:
             mask_task = ee.batch.Export.image.toDrive(
                 image=img.select(0).mask().uint8(),
                 description=f"{self.name}-mask",
                 region=self.bounds,
-                # The mask will be at the output LiDAR resolution
-                scale=30,
                 fileFormat="GeoTIFF",
                 maxPixels=1e13,
                 crs=CRS,
+                # The mask will be at the output LiDAR resolution
+                crsTransform=compose_transform(
+                    BASE_TRANSFORM,
+                    origin=snapped_origin,
+                    scale=30.0,
+                ),
                 **kwargs,
             )
             mask_task.start()
@@ -425,7 +444,6 @@ class NAIPTFRecord:
             image=img,
             description=self.name,
             region=self.bounds,
-            scale=self.res,
             fileFormat="TFRecord",
             maxPixels=1e13,
             # Note that explicitly setting the CRS changes the output to north-up,
@@ -433,6 +451,11 @@ class NAIPTFRecord:
             # problem as long we correct the orientation during inference.
             # See https://github.com/lemma-osu/naip-cnn/issues/25
             crs=CRS,
+            crsTransform=compose_transform(
+                BASE_TRANSFORM,
+                origin=snapped_origin,
+                scale=self.res,
+            ),
             formatOptions={
                 "patchDimensions": self.naip_shape,
                 "compressed": True,
