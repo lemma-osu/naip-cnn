@@ -23,6 +23,33 @@ def compute_snapped_origin(
     return origin_x, origin_y
 
 
+def compute_dimensions(
+    region: ee.Geometry,
+    origin: tuple[float, float],
+    scale: float,
+    snap_size: int,
+    proj: ee.Projection,
+    max_error: float = 1.0,
+) -> tuple[int, int]:
+    """
+    Compute the dimensions (width, height) in pixels required to cover the given
+    region from the specified origin at the given scale.
+    """
+    bbox = region.bounds(max_error, proj=proj)
+    coords = np.asarray(bbox.coordinates().get(0).getInfo())
+    maxx = coords[:, 0].max()
+    miny = coords[:, 1].min()
+
+    width = int(math.ceil((maxx - origin[0]) / scale))
+    height = int(math.ceil((origin[1] - miny) / scale))
+
+    # Snap dimensions up to the nearest multiple of snap_size
+    width = int(math.ceil(width / snap_size) * snap_size)
+    height = int(math.ceil(height / snap_size) * snap_size)
+
+    return width, height
+
+
 def compose_transform(
     base_transform: list[float],
     origin: tuple[float, float],

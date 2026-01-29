@@ -19,3 +19,12 @@ def str_to_float(s: str) -> float:
     - '1' -> 1.0
     """
     return float(s.replace("p", "."))
+
+
+def dimensions_to_str(dimensions: tuple[int, int]) -> str:
+    """Stringify dimensions for GEE.
+
+    For example:
+    - (256, 256) -> '256x256'
+    """
+    return f"{dimensions[0]}x{dimensions[1]}"

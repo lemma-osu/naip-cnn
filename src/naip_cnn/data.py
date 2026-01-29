@@ -24,8 +24,12 @@ from naip_cnn.config import (
     TFRECORD_DIR,
     TRAIN_DIR,
 )
-from naip_cnn.utils.parsing import float_to_str, str_to_float
-from naip_cnn.utils.transform import compose_transform, compute_snapped_origin
+from naip_cnn.utils.parsing import dimensions_to_str, float_to_str, str_to_float
+from naip_cnn.utils.transform import (
+    compose_transform,
+    compute_dimensions,
+    compute_snapped_origin,
+)
 
 
 class _HDF5DatasetMixin:
@@ -426,7 +430,6 @@ class NAIPTFRecord:
             mask_task = ee.batch.Export.image.toDrive(
                 image=img.select(0).mask().uint8(),
                 description=f"{self.name}-mask",
-                region=self.bounds,
                 fileFormat="GeoTIFF",
                 maxPixels=1e13,
                 crs=CRS,
@@ -436,6 +439,17 @@ class NAIPTFRecord:
                     origin=snapped_origin,
                     scale=30.0,
                 ),
+                # The CRS transform origin will be ignored if `region` is provided, so
+                # we need to calculate dimensions manually.
+                dimensions=dimensions_to_str(
+                    compute_dimensions(
+                        region=self.bounds,
+                        origin=snapped_origin,
+                        scale=30.0,
+                        snap_size=GRID_SNAP,
+                        proj=ee.Projection(CRS),
+                    )
+                ),
                 **kwargs,
             )
             mask_task.start()
@@ -443,7 +457,6 @@ class NAIPTFRecord:
         task = ee.batch.Export.image.toDrive(
             image=img,
             description=self.name,
-            region=self.bounds,
             fileFormat="TFRecord",
             maxPixels=1e13,
             # Note that explicitly setting the CRS changes the output to north-up,
@@ -455,6 +468,17 @@ class NAIPTFRecord:
                 BASE_TRANSFORM,
                 origin=snapped_origin,
                 scale=self.res,
+            ),
+            # The CRS transform origin will be ignored if `region` is provided, so
+            # we need to calculate dimensions manually.
+            dimensions=dimensions_to_str(
+                compute_dimensions(
+                    region=self.bounds,
+                    origin=snapped_origin,
+                    scale=1.0,
+                    snap_size=GRID_SNAP,
+                    proj=ee.Projection(CRS),
+                )
             ),
             formatOptions={
                 "patchDimensions": self.naip_shape,
