@@ -11,8 +11,8 @@ def compute_snapped_origin(
     max_error: float = 1.0,
 ) -> tuple[float, float]:
     """
-    Compute an origin point (top-left corner) that encompasses the given region
-    and is snapped to the specified pixel size.
+    Compute an origin point (top-left corner) in projection units that encompasses the
+    given region and is snapped to the specified grid size.
     """
     bbox = region.bounds(max_error, proj=proj)
     coords = np.asarray(bbox.coordinates().get(0).getInfo())
@@ -40,12 +40,16 @@ def compute_dimensions(
     maxx = coords[:, 0].max()
     miny = coords[:, 1].min()
 
-    width = int(math.ceil((maxx - origin[0]) / scale))
-    height = int(math.ceil((origin[1] - miny) / scale))
+    projected_width = maxx - origin[0]
+    projected_height = origin[1] - miny
 
-    # Snap dimensions up to the nearest multiple of snap_size
-    width = int(math.ceil(width / snap_size) * snap_size)
-    height = int(math.ceil(height / snap_size) * snap_size)
+    # Snap projected dimensions up to the nearest multiple of snap_size
+    projected_width = math.ceil(projected_width / snap_size) * snap_size
+    projected_height = math.ceil(projected_height / snap_size) * snap_size
+
+    # Convert snapped projected dimensions to pixels
+    width = int(round(projected_width / scale))
+    height = int(round(projected_height / scale))
 
     return width, height
 

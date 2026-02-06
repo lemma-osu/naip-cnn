@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 
 # The Earth Engine path where assets are stored
@@ -39,20 +40,26 @@ CRS = (
 # Base geotransform for GEE exports. The origin and pixel size are adjusted based on the
 # export parameters.
 BASE_TRANSFORM = (1.0, 0.0, 0.0, 0.0, -1.0, 0.0)
-# Snap size in meters for aligning exports to a fixed grid
+# Snap size in projection units (i.e. meters) for aligning exports to a fixed grid
 GRID_SNAP = 30.0
-# Pre-computed origin point at the top-left of the study area
+# Pre-computed origin point in projection units (i.e. meters) at the top-left of the
+# study area.
 ORIGIN = (603870, 1273200)
-# Pre-computed dimensions in meters to cover the study area
+# Pre-computed dimensions in projection units (i.e. meters) to cover the study area
 DIMENSIONS = (182_100, 214_110)
 
 # The NAIP bands stored during sampling. Subsets of these bands may be used during
 # training, but all bands will be present in the datasets.
 BANDS = ("R", "G", "B", "N")
 
-# Spatial resolution in meters to extract and predict at
+# Spatial resolution in projection units (i.e. meters) to extract and predict at
 NAIP_RES = 1.0
 LIDAR_RES = 30.0
+
+# Dimensions in pixels for NAIP and LiDAR data, computed from the base dimensions and
+# resolutions
+NAIP_DIMENSIONS = tuple(math.ceil(d * NAIP_RES) for d in DIMENSIONS)
+LIDAR_DIMENSIONS = tuple(math.ceil(d * LIDAR_RES) for d in DIMENSIONS)
 
 # The name of the Weights and Biases project where results are logged
 WANDB_PROJECT = "naip-cnn"
