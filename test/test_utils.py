@@ -9,14 +9,13 @@ from naip_cnn.utils.transform import (
 
 
 def test_compute_snapped_origin():
-    geometry = ee.FeatureCollection(
-        "projects/ee-maptheforests/assets/USFS_RD_CNN"
-    ).geometry()
+    # Use an arbitrary rectangle as a pseudo regression test
+    geometry = ee.Geometry.Rectangle([-119.497, 44.749, -118.299, 43.924])
     assert compute_snapped_origin(
         geometry,
         snap_size=30,
         proj=ee.Projection(CRS),
-    ) == (603930, 1272330)
+    ) == (639780, 1188420)
 
 
 def test_compose_transform():
@@ -28,12 +27,11 @@ def test_compose_transform():
 
 
 def test_compute_dimensions():
-    geometry = ee.FeatureCollection(
-        "projects/ee-maptheforests/assets/USFS_RD_CNN"
-    ).geometry()
+    # Use an arbitrary rectangle as a pseudo regression test
+    geometry = ee.Geometry.Rectangle([-119.497, 44.749, -118.299, 43.924])
     origin = (603930, 1272330)
     scale = 1.0
-    expected_dimensions = (181890, 213030)
+    expected_dimensions = (132600, 176970)
     assert (
         compute_dimensions(
             geometry,
