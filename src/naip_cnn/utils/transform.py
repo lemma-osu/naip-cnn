@@ -6,7 +6,7 @@ import numpy as np
 
 def compute_snapped_origin(
     region: ee.Geometry,
-    snap_size: int,
+    snap_size: float,
     proj: ee.Projection,
     max_error: float = 1.0,
 ) -> tuple[float, float]:
@@ -27,7 +27,7 @@ def compute_dimensions(
     region: ee.Geometry,
     origin: tuple[float, float],
     scale: float,
-    snap_size: int,
+    snap_size: float,
     proj: ee.Projection,
     max_error: float = 1.0,
 ) -> tuple[int, int]:

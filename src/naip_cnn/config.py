@@ -40,7 +40,7 @@ CRS = (
 # export parameters.
 BASE_TRANSFORM = (1.0, 0.0, 0.0, 0.0, -1.0, 0.0)
 # Snap size in meters for aligning exports to a fixed grid
-GRID_SNAP = 30
+GRID_SNAP = 30.0
 # Pre-computed origin point at the top-left of the study area
 ORIGIN = (603870, 1273200)
 # Pre-computed dimensions in meters to cover the study area

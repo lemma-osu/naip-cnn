@@ -13,7 +13,7 @@ def test_compute_snapped_origin():
     geometry = ee.Geometry.Rectangle([-119.497, 44.749, -118.299, 43.924])
     assert compute_snapped_origin(
         geometry,
-        snap_size=30,
+        snap_size=30.0,
         proj=ee.Projection(CRS),
     ) == (639780, 1188420)
 
@@ -37,7 +37,7 @@ def test_compute_dimensions():
             geometry,
             origin,
             scale,
-            snap_size=30,
+            snap_size=30.0,
             proj=ee.Projection(CRS),
         )
         == expected_dimensions
