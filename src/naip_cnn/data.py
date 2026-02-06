@@ -20,6 +20,7 @@ from naip_cnn.config import (
     BASE_TRANSFORM,
     CRS,
     GRID_SNAP,
+    LIDAR_RES,
     NAIP_RES,
     TFRECORD_DIR,
     TRAIN_DIR,
@@ -456,7 +457,7 @@ class NAIPTFRecord:
                 mask_dimensions = compute_dimensions(
                     region=self.bounds,
                     origin=origin,
-                    scale=30.0,  # Mask is always at 30m resolution
+                    scale=LIDAR_RES,
                     snap_size=GRID_SNAP,
                     proj=ee.Projection(CRS),
                 )
@@ -471,7 +472,7 @@ class NAIPTFRecord:
                 crsTransform=compose_transform(
                     BASE_TRANSFORM,
                     origin=origin,
-                    scale=30.0,
+                    scale=LIDAR_RES,
                 ),
                 # The CRS transform origin will be ignored if `region` is provided, so
                 # we need to calculate dimensions manually.
