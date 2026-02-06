@@ -36,10 +36,15 @@ CRS = (
     'AXIS["Y",NORTH]]'
 )
 
-# Base geotransform for GEE exports. The origin and pixel size may need to be adjusted
-# depending on the dataset and region.
+# Base geotransform for GEE exports. The origin and pixel size are adjusted based on the
+# export parameters.
 BASE_TRANSFORM = (1.0, 0.0, 0.0, 0.0, -1.0, 0.0)
-GRID_SNAP = 30  # Snap grid size in meters for aligning exports
+# Snap size in meters for aligning exports to a fixed grid
+GRID_SNAP = 30
+# Pre-computed origin point at the top-left of the study area
+ORIGIN = (603870, 1273200)
+# Pre-computed dimensions in meters to cover the study area
+DIMENSIONS = (182_100, 214_110)
 
 # The NAIP bands stored during sampling. Subsets of these bands may be used during
 # training, but all bands will be present in the datasets.

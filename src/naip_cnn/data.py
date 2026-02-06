@@ -392,6 +392,9 @@ class NAIPTFRecord:
         self,
         mask: ee.Image = None,
         clip: ee.Feature = None,
+        origin: tuple[float, float] | None = None,
+        dimensions: tuple[int, int] | None = None,
+        mask_dimensions: tuple[int, int] | None = None,
         export_mask: bool = False,
         **kwargs,
     ):
@@ -406,6 +409,16 @@ class NAIPTFRecord:
             An optional feature to clip the NAIP image to before exporting.
         export_mask : bool
             If true, a GeoTIFF mask will be exported alongside the TFRecord.
+        origin : tuple[float, float]
+            The (x, y) origin of the export in projected coordinates. If None, the
+            origin will be computed from the bounds, snapping to the configured grid
+            spacing.
+        dimensions : tuple[int, int]
+            The (width, height) dimensions of the export in pixels. If None, the
+            dimensions will be computed from the bounds and resolution.
+        mask_dimensions : tuple[int, int]
+            The (width, height) dimensions of the mask export in pixels. If None, the
+            dimensions will be computed from the bounds at 30m resolution.
         kwargs : dict
             Additional arguments to pass to `ee.batch.Export.image.toDrive`.
 
@@ -420,13 +433,34 @@ class NAIPTFRecord:
         if clip is not None:
             img = img.clip(clip)
 
-        snapped_origin = compute_snapped_origin(
-            region=self.bounds,
-            snap_size=GRID_SNAP,
-            proj=ee.Projection(CRS),
-        )
+        # Compute the origin from the bounds if not provided, snapping to the configured
+        # grid spacing.
+        if origin is None:
+            origin = compute_snapped_origin(
+                region=self.bounds,
+                snap_size=GRID_SNAP,
+                proj=ee.Projection(CRS),
+            )
+
+        if dimensions is None:
+            dimensions = compute_dimensions(
+                region=self.bounds,
+                origin=origin,
+                scale=self.res,
+                snap_size=GRID_SNAP,
+                proj=ee.Projection(CRS),
+            )
 
         if export_mask:
+            if mask_dimensions is None:
+                mask_dimensions = compute_dimensions(
+                    region=self.bounds,
+                    origin=origin,
+                    scale=30.0,  # Mask is always at 30m resolution
+                    snap_size=GRID_SNAP,
+                    proj=ee.Projection(CRS),
+                )
+
             mask_task = ee.batch.Export.image.toDrive(
                 image=img.select(0).mask().uint8(),
                 description=f"{self.name}-mask",
@@ -436,20 +470,12 @@ class NAIPTFRecord:
                 # The mask will be at the output LiDAR resolution
                 crsTransform=compose_transform(
                     BASE_TRANSFORM,
-                    origin=snapped_origin,
+                    origin=origin,
                     scale=30.0,
                 ),
                 # The CRS transform origin will be ignored if `region` is provided, so
                 # we need to calculate dimensions manually.
-                dimensions=dimensions_to_str(
-                    compute_dimensions(
-                        region=self.bounds,
-                        origin=snapped_origin,
-                        scale=30.0,
-                        snap_size=GRID_SNAP,
-                        proj=ee.Projection(CRS),
-                    )
-                ),
+                dimensions=dimensions_to_str(mask_dimensions),
                 **kwargs,
             )
             mask_task.start()
@@ -466,20 +492,12 @@ class NAIPTFRecord:
             crs=CRS,
             crsTransform=compose_transform(
                 BASE_TRANSFORM,
-                origin=snapped_origin,
+                origin=origin,
                 scale=self.res,
             ),
             # The CRS transform origin will be ignored if `region` is provided, so
             # we need to calculate dimensions manually.
-            dimensions=dimensions_to_str(
-                compute_dimensions(
-                    region=self.bounds,
-                    origin=snapped_origin,
-                    scale=1.0,
-                    snap_size=GRID_SNAP,
-                    proj=ee.Projection(CRS),
-                )
-            ),
+            dimensions=dimensions_to_str(dimensions),
             formatOptions={
                 "patchDimensions": self.naip_shape,
                 "compressed": True,
