@@ -11,8 +11,8 @@ def compute_snapped_origin(
     max_error: float = 1.0,
 ) -> tuple[float, float]:
     """
-    Compute an origin point (top-left corner) in projection units that encompasses the
-    given region and is snapped to the specified grid size.
+    Compute an origin point (top-left corner) in projection units for the given region,
+    snapped to the specified size.
     """
     bbox = region.bounds(max_error, proj=proj)
     coords = np.asarray(bbox.coordinates().get(0).getInfo())
